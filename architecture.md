@@ -1,16 +1,9 @@
-# Paloma — Software Architecture
-
-**Status:** Design / Pre-implementation
-**Audience:** Engineering team, future contributors
-**Purpose:** This document is the architectural blueprint for Paloma. It describes how the system *should* be built. No implementation currently exists; this document guides that implementation and should be kept in sync as the design evolves.
-
----
 
 ## 1. Project Overview
 
 ### 1.1 Purpose
 
-Paloma transforms raw astronomical observation data from NASA's **TESS** (Transiting Exoplanet Survey Satellite) mission into structured, versioned, ML-ready datasets used to train and evaluate exoplanet detection models. Paloma is a **data engineering pipeline**, not a modeling library: its job ends where a clean, labeled, reproducible dataset begins, and it exposes that dataset through a stable interface that downstream ML code can consume without needing to understand FITS files, instrument quirks, or catalog cross-matching.
+transforms raw astronomical observation data from NASA's **TESS** (Transiting Exoplanet Survey Satellite) mission into structured, versioned, ML-ready datasets used to train and evaluate exoplanet detection models. Paloma is a **data engineering pipeline**, not a modeling library: its job ends where a clean, labeled, reproducible dataset begins, and it exposes that dataset through a stable interface that downstream ML code can consume without needing to understand FITS files, instrument quirks, or catalog cross-matching.
 
 ### 1.2 Scope
 
