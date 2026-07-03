@@ -1,4 +1,4 @@
-# Paloma — PRD Section: Design Goals
+# PRD Section: Design Goals
 
 **Status:** Design / Pre-implementation
 **Parent document:** Product Requirements Document (PRD) for Paloma
