@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+._*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv
+env/
+venv/
+
+# Test / coverage
+.pytest_cache/
+.mypy_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Environment files
+.env
+
+# FITS data (groundtruth fixtures / pipeline outputs are large binaries)
+*.fits
+*.fit
+
+# Transient run outputs
+results/*/
+!results/README.md
+_gt_work/

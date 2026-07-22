@@ -1,0 +1,8 @@
+# Paloma runtime dependencies.
+# The cleaning stage's dehazer engine lives at paloma/cleaning/dehazer/.
+numpy>=1.21
+scipy>=1.7
+astropy>=5.0
+scikit-image>=0.19
+opencv-python>=4.5
+matplotlib>=3.4
