@@ -4,26 +4,37 @@
 
 ## 1. Project Overview
 
-Paloma is a data pipeline that takes light curve data (star brightness measured over time) and figures out what kind of astronomical phenomenon it shows.
-
-The data comes from the TESS space telescope, supplied by Tequilla in FITS format. In the future, other sources of light curve data may be added.
-
-Paloma reads a light curve, cleans it up, extracts useful information from it, and then classifies it as one of:
+Paloma is a data pipeline that takes FITS files and figures out what kind of astronomical phenomenon they show.
+The data comes from the TESS space telescope, supplied by Tequilla in FITS format.
+Paloma reads a FITS file, cleans it up, generates a light curve (star brightness measured over time), extracts useful information from it, and then classifies it using classification algorithms to identify phenomena such as:
 
 - **Transit** (possible exoplanet)
 - **EB** (eclipsing binary star)
 - **Dwarf star**
 - **Unknown / other**
 
-The system does this by passing each light curve through a fixed sequence of processing steps, one after another.
+The system does this by passing each input through a modular sequence of processing steps.
 
-## 2. Pipeline Flow
+## 2. Pipeline Reference
 
 ```
 Ingestion → Validation → Cleaning → Detrending → Normalization → Feature Extraction → Classification
 ```
 
 Each stage takes the output of the previous stage, does one job, and passes its result to the next stage. If a stage fails (e.g. validation rejects the data), the pipeline stops early and does not continue to the next stages.
+Architecturally, the pipeline is implemented using the **Pipes and Filters** pattern to enable modular, step-by-step processing, combined with the **Chain of Responsibility** pattern to handle stage execution flow and early termination upon failure.
+
+Every core processing stage adheres to a standardized interface, maintaining a consistent structure across the pipeline:
+* `input data`: The incoming payload passed from the previous stage.
+* `prepare`: Sets up the necessary state, dependencies, or parameters required for execution.
+* `run`: Executes the stage's core processing logic.
+* `result`: Holds the output produced by the stage.
+* `remark`: Captures execution notes, warnings, or error details.
+* `description`: Provides metadata describing the stage's purpose and functionality.
+
+The pipeline boundary stages serve dedicated roles and differ from standard processing stages:
+* **Start:** Initializes the pipeline context, sets up execution parameters, loads configuration settings, and receives the raw FITS file or initial reference data to bootstrap the flow.
+* **End:** Handles final output aggregation, logs execution metrics and results, cleans up temporary resources, and emits the pipeline's completed payload or final status.
 
 ### Implementation ownership
 
