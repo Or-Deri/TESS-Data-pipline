@@ -55,7 +55,7 @@ The repository guards the engine with a `pytest` suite ([tests/](../../tests)):
 | Test file | What it checks |
 |---|---|
 | [test_pipeline.py](../../tests/test_pipeline.py) | `dehaze` is deterministic for a fixed config, and the `DehazePipeline` facade reproduces `dehaze` output on synthetic FITS to `rtol=atol=1e-9`. |
-| [test_groundtruth.py](../../tests/test_groundtruth.py) | Full-resolution end-to-end run on `tests/data/groundtruth/raw` matches the captured `tests/data/groundtruth/expected` FITS. Marked `slow`; auto-skipped if the fixtures are absent. |
+| [test_groundtruth.py](../../tests/test_groundtruth.py) | Full-resolution end-to-end run on `tests/data/groundtruth/raw` matches the captured `tests/data/groundtruth/expected` FITS. Marked `slow`; auto-skipped if the fixtures are missing. |
 | [test_strategy.py](../../tests/test_strategy.py) | The Strategy layer (`available_strategies() == ["default"]`, factory, registry guards, `DehazingContext`) and that the strategy wrapper is a no-op over `dehaze`. |
 | [test_workflow_engine.py](../../tests/test_workflow_engine.py) | The `Stage`/`Chain` engine: composition via `>>`, ordering, `requires` guards, `WorkflowContext.prefix`. |
 

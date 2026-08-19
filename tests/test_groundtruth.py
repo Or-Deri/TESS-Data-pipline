@@ -4,7 +4,7 @@
 ``tests/data/groundtruth/expected/`` holds the ``dehazed_3d__*.fits`` that the
 original dehazer produced from them. This is a slow, full-resolution end-to-end
 check (a few minutes at ``guided_filter_radius=60`` on 2048x2048 frames), so it
-is marked ``slow`` and skipped automatically if the data is not checked out.
+is marked ``slow`` and skipped automatically if the FITS fixtures are missing.
 
 Run only this check with::
 

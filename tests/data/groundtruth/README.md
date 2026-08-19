@@ -20,5 +20,5 @@ python -m paloma.cleaning.dehazer dehaze \
 
 Compare `results/ours/dehazed__*.fits` to `tests/data/groundtruth/expected/`
 (the captured reference files keep their original `dehazed_3d__` prefix; match by
-the frame name after the prefix). FITS files are gitignored; keep local copies
-for acceptance checks.
+the frame name after the prefix). The `raw/` and `expected/` FITS fixtures are
+tracked in git so `pytest -m slow` can run after a clone.

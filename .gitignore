@@ -34,9 +34,12 @@ htmlcov/
 # Environment files
 .env
 
-# FITS data (groundtruth fixtures / pipeline outputs are large binaries)
+# FITS data (pipeline outputs are large binaries)
 *.fits
 *.fit
+# Keep the dehazer regression fixtures in git (~330MB, files are under 100MB)
+!tests/data/groundtruth/raw/*.fits
+!tests/data/groundtruth/expected/*.fits
 
 # Transient run outputs
 results/*/
