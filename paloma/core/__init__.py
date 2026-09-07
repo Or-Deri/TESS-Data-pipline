@@ -7,6 +7,13 @@ from .cleaner import (
     create_cleaner,
     register_cleaner,
 )
+from .subtractor import (
+    BaseSubtractor,
+    Subtractor,
+    available_subtractors,
+    create_subtractor,
+    register_subtractor,
+)
 from .stage import PipelineStage
 from .types import (
     ClassificationResult,
@@ -15,6 +22,8 @@ from .types import (
     FeatureVector,
     LightCurve,
     ProcessedLightCurve,
+    SubtractionRequest,
+    SubtractionResult,
 )
 
 __all__ = [
@@ -25,9 +34,16 @@ __all__ = [
     "ClassificationResult",
     "CleaningRequest",
     "CleaningResult",
+    "SubtractionRequest",
+    "SubtractionResult",
     "Cleaner",
     "BaseCleaner",
     "register_cleaner",
     "create_cleaner",
     "available_cleaners",
+    "Subtractor",
+    "BaseSubtractor",
+    "register_subtractor",
+    "create_subtractor",
+    "available_subtractors",
 ]

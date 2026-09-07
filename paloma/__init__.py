@@ -1,18 +1,20 @@
-"""Paloma — cleaning area + pipeline stage shields.
+"""Paloma — cleaning, image subtraction, + pipeline stage shields.
 
-**Owned / real:** the cleaning area
-(:class:`~paloma.core.cleaner.Cleaner`, :class:`~paloma.stages.cleaning.CleaningStage`,
-:mod:`paloma.cleaning`).
+**Owned / real:** cleaning (:class:`~paloma.core.cleaner.Cleaner`,
+:class:`~paloma.stages.cleaning.CleaningStage`) and image subtraction
+(:class:`~paloma.core.subtractor.Subtractor`,
+:class:`~paloma.stages.image_subtraction.ImageSubtractionStage`).
 
-**Shields only:** stub stages for the rest of the pipeline shape
-(:mod:`paloma.stages.shields`) and empty domain-type shells for those stages.
+**Shields only:** stub stages for the rest of the pipeline shape.
 """
 
 __version__ = "0.1.0"
 
-from .config import CleaningConfig
+from .config import CleaningConfig, ImageSubtractionConfig
+from .env import IOPaths, load_env, paths_from_env
 from .core import (
     BaseCleaner,
+    BaseSubtractor,
     ClassificationResult,
     Cleaner,
     CleaningRequest,
@@ -21,27 +23,36 @@ from .core import (
     LightCurve,
     PipelineStage,
     ProcessedLightCurve,
+    SubtractionRequest,
+    SubtractionResult,
+    Subtractor,
     available_cleaners,
+    available_subtractors,
     create_cleaner,
+    create_subtractor,
     register_cleaner,
+    register_subtractor,
 )
 
 from . import cleaning  # noqa: E402  # registers built-in cleaners
+from . import image_subtraction  # noqa: E402  # registers default subtractor
 from .cleaning import DehazerCleaner  # noqa: E402
+from .image_subtraction import DefaultSubtractor  # noqa: E402
 from .stages import (  # noqa: E402
     ClassificationStage,
     CleaningStage,
     DetrendingStage,
     FeatureExtractionStage,
+    ImageSubtractionStage,
     IngestionStage,
     NormalizationStage,
     ValidationStage,
 )
 
 __all__ = [
-    # Framework (needed by cleaner + shields)
+    # Framework
     "PipelineStage",
-    # Cleaning — owned / real
+    # Cleaning
     "Cleaner",
     "BaseCleaner",
     "register_cleaner",
@@ -52,7 +63,21 @@ __all__ = [
     "CleaningResult",
     "CleaningStage",
     "CleaningConfig",
-    # Shields — other stages / domain types
+    # Image subtraction (after cleaning)
+    "Subtractor",
+    "BaseSubtractor",
+    "register_subtractor",
+    "create_subtractor",
+    "available_subtractors",
+    "DefaultSubtractor",
+    "SubtractionRequest",
+    "SubtractionResult",
+    "ImageSubtractionStage",
+    "ImageSubtractionConfig",
+    "load_env",
+    "paths_from_env",
+    "IOPaths",
+    # Shields
     "IngestionStage",
     "ValidationStage",
     "DetrendingStage",

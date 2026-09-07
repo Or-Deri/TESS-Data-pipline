@@ -1,12 +1,12 @@
 """Concrete pipeline stages.
 
-**Owned / implemented:** :class:`CleaningStage`.
+**Owned / implemented:** :class:`CleaningStage`, :class:`ImageSubtractionStage`.
 
-**Shields only:** the other stages live in :mod:`paloma.stages.shields` and raise
-:class:`NotImplementedError` if run.
+**Shields only:** other stages in :mod:`paloma.stages.shields`.
 """
 
 from .cleaning import CleaningStage
+from .image_subtraction import ImageSubtractionStage
 from .shields import (
     ClassificationStage,
     DetrendingStage,
@@ -18,6 +18,7 @@ from .shields import (
 
 __all__ = [
     "CleaningStage",
+    "ImageSubtractionStage",
     "IngestionStage",
     "ValidationStage",
     "DetrendingStage",

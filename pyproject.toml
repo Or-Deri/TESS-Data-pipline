@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paloma"
+version = "0.1.0"
+description = "TESS data pipeline — cleaning, image subtraction, and stage shields"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "Paloma contributors" }]
+dependencies = [
+  "numpy>=1.21",
+  "scipy>=1.7",
+  "astropy>=5.0",
+  "scikit-image>=0.19",
+  "opencv-python>=4.5",
+  "matplotlib>=3.4",
+  "photutils>=1.5",
+  "lightkurve>=2.4",
+  "python-dotenv>=1.0",
+  "FITS_tools @ git+https://github.com/keflavich/FITS_tools.git",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["paloma*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "slow: full-resolution end-to-end runs (minutes); deselect with -m 'not slow'",
+]
+filterwarnings = [
+  "ignore::DeprecationWarning:lightkurve.*",
+  "ignore::astropy.wcs.FITSFixedWarning",
+]

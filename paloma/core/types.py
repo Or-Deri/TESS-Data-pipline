@@ -46,6 +46,51 @@ class CleaningResult:
         return len(self.outputs)
 
 
+# --- Image subtraction (owned / real) ----------------------------------------
+
+
+@dataclass
+class SubtractionRequest:
+    """Input to the image-subtraction stage (typically cleaned FFIs from cleaning)."""
+
+    input_dir: str
+    output_dir: str
+    params: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_cleaning(
+        cls,
+        cleaning: "CleaningResult",
+        output_dir: str,
+        **params: Any,
+    ) -> "SubtractionRequest":
+        """Build a request chained from a :class:`CleaningResult`."""
+        return cls(
+            input_dir=cleaning.output_dir,
+            output_dir=output_dir,
+            params=dict(params),
+            metadata={"cleaning": cleaning.metadata, **cleaning.metadata},
+        )
+
+
+@dataclass
+class SubtractionResult:
+    """Output of image subtraction: residuals, source catalog, light curves."""
+
+    input_dir: str
+    output_dir: str
+    outputs: List[str] = field(default_factory=list)
+    sources_csv: str | None = None
+    lightcurve_dir: str | None = None
+    reference_fits: str | None = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def num_outputs(self) -> int:
+        return len(self.outputs)
+
+
 # --- Shields for non-cleaning stages ----------------------------------------
 
 

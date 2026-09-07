@@ -15,7 +15,7 @@ dist/
 *.egg
 
 # Virtual environments
-.venv
+.venv/
 env/
 venv/
 
@@ -31,17 +31,28 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints
 
-# Environment files
+# Environment / editor
 .env
+*.log
 
 # FITS data (pipeline outputs are large binaries)
 *.fits
 *.fit
-# Keep the dehazer regression fixtures in git (~330MB, files are under 100MB)
-!tests/data/groundtruth/raw/*.fits
-!tests/data/groundtruth/expected/*.fits
+# Keep regression fixtures in git (individual files are under 100MB)
+!tests/data/cleaning/groundtruth/raw/*.fits
+!tests/data/cleaning/groundtruth/expected/*.fits
+!tests/data/image_subtraction/groundtruth/expected/residuals/*.fits
+
+# Local capture scratch from ground-truth generation (not fixtures)
+tests/data/**/_work/
+tests/data/**/_paloma_capture/
+_gt_work/
 
 # Transient run outputs
 results/*/
 !results/README.md
-_gt_work/
+!results/.gitkeep
+
+# Local C-backend scratch (keep binary under build/; fits are runtime junk)
+build/code_dir/*.fits
+build/code_dir/*.txt
