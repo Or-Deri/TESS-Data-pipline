@@ -33,10 +33,7 @@ Notes: empty = code default; bools `true`/`false`; pairs `x,y`; ints accept `0bâ
 ## Run the pipeline
 
 ```bash
-python scripts/run_pipeline.py
-# or
 python -m paloma
-
 python -m paloma --input-dir path/to/fits --output-dir results
 ```
 
@@ -109,7 +106,6 @@ paloma/
   core/                   # types, Cleaner/Subtractor, shared chain (>>)
   cleaning/               # DehazerCleaner + dehazer engine
   image_subtraction/      # DefaultSubtractor + OIS engine
-scripts/run_pipeline.py
 .env.example
 tests/
 ```
