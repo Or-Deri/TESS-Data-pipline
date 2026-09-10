@@ -10,7 +10,7 @@ from tests.cleaning.helpers import assert_outputs_match
 
 def _run(input_dir, output_dir, cfg_kwargs):
     from paloma.cleaning.dehazer.config import DehazeConfig
-    from paloma.cleaning.dehazer.pipeline import dehaze
+    from paloma.cleaning.dehazer import dehaze
 
     dehaze(str(input_dir), str(output_dir), DehazeConfig(**cfg_kwargs))
 
@@ -31,7 +31,7 @@ def test_fluent_facade_matches_dehaze(synthetic_fits, cfg_kwargs, tmp_path):
     """The DehazePipeline fluent API produces the same FITS as dehaze()."""
     from paloma.cleaning.dehazer.config import DehazeConfig
     from paloma.cleaning.dehazer.io import load_fits_directory
-    from paloma.cleaning.dehazer.pipeline import DehazePipeline, dehaze
+    from paloma.cleaning.dehazer import DehazePipeline, dehaze
 
     out_run = tmp_path / "run"
     out_fluent = tmp_path / "fluent"

@@ -1,9 +1,9 @@
 """Concrete dehazing stages, composed into a chain by :mod:`tess_dehazing.pipeline`.
 
-Each stage maps to exactly one documented step of the workflow
-(``docs/workflow``). The numeric behaviour is unchanged — these classes package
-the algorithm into composable :class:`~tess_dehazing.workflow.engine.Stage`
-units.
+Each stage maps to one step of the dehazing chain
+(``README.md``). The numeric behaviour is unchanged —
+these classes package the algorithm into composable
+:class:`~paloma.core.chain.Stage` units.
 
 3-D batch chain (one globally-normalized cube)::
 
@@ -34,7 +34,7 @@ from ..core import (
     to_gpu,
 )
 from ..io import DEHAZED_PREFIX, denormalize, save_fits
-from .engine import Stage
+from paloma.core.chain import Stage
 
 
 class MoveCubeToDevice(Stage):
@@ -172,7 +172,7 @@ class RecoverAndSave(Stage):
             result = denormalize(
                 to_cpu(recovered), meta["orig_min"], meta["orig_max"],
             )
-            save_fits(result, out_path)
+            save_fits(result, out_path, header=meta.get("header"))
             print(f"  Saved: {out_name}  "
                   f"(A={ctx.airlights[i]:.4f}, "
                   f"result range=[{result.min():.2f}, {result.max():.2f}])")

@@ -1,6 +1,6 @@
-"""Transmission-map estimation (Step 3).
+"""Transmission map + scene recovery (haze-model inversion).
 
-See ``docs/workflow/05-transmission.md``.
+See ``README.md``.
 """
 
 from .backend import get_array_module
@@ -25,3 +25,11 @@ def recover_transmission_map(image, a, radius=60, eps=0.001, t_min_clip=0.01):
         f"mean={float(t_refined.mean()):.4f}"
     )
     return t_refined
+
+
+def recover_image(image, a, t_map, t_min_clip=0.01):
+    """Invert the haze model with scalar ``a`` and transmission ``t_map``."""
+    xp = get_array_module(image)
+    t_safe = xp.maximum(t_map, t_min_clip)
+    recovered = (image - a) / t_safe + a
+    return xp.clip(recovered, 0.0, 1.0)

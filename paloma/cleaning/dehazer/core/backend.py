@@ -2,7 +2,7 @@
 
 Every function here works on both NumPy and CuPy arrays. When CuPy is not
 installed (the common case) everything degrades to pure NumPy/SciPy on the CPU,
-which is the canonical reference path (``docs/workflow/07-ops.md``).
+which is the canonical reference path (``README.md``).
 """
 
 import shutil
@@ -67,7 +67,7 @@ def find_nearest_neighbors(descriptors, chunk_size=4096):
 
     Returns ``(nn_idx, nn_dist)``. Self-matches are excluded by setting the
     diagonal distance to ``+inf``. Ties resolve via ``argmin`` (first minimum),
-    matching ``docs/workflow/03-estimate-airlight.md``.
+    matching ``README.md``.
     """
     xp = get_array_module(descriptors)
     n = descriptors.shape[0]

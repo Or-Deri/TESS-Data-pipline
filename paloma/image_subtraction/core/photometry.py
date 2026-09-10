@@ -16,6 +16,8 @@ from photutils.aperture import CircularAperture, aperture_photometry
 
 
 def propagate_wcs(dir_with_headers: str, dir_without_headers: str) -> None:
+    from .preprocess import _has_wcs
+
     headers_files = sorted(f for f in os.listdir(dir_with_headers) if f.endswith(".fits"))
     no_headers_files = sorted(f for f in os.listdir(dir_without_headers) if f.endswith(".fits"))
     for header_file, no_header_file in zip(headers_files, no_headers_files):
@@ -24,6 +26,8 @@ def propagate_wcs(dir_with_headers: str, dir_without_headers: str) -> None:
         header_path = os.path.join(dir_with_headers, header_file)
         no_header_path = os.path.join(dir_without_headers, no_header_file)
         _, header = fits.getdata(header_path, header=True)
+        if not _has_wcs(header):
+            continue
         wcs = WCS(header)
         no_img, _ = fits.getdata(no_header_path, header=True)
         fits.PrimaryHDU(no_img, header=wcs.to_header(relax=True)).writeto(
@@ -52,8 +56,10 @@ def write_lightcurves(
     ref_head: fits.Header,
     out_dir: str,
 ) -> list[str]:
+    from .preprocess import _has_wcs
+
     os.makedirs(out_dir, exist_ok=True)
-    ref_wcs = WCS(ref_head)
+    ref_wcs = WCS(ref_head) if _has_wcs(ref_head) else None
     outputs: list[str] = []
     for i, xy in enumerate(source_list):
         flux = [row[i] for row in flux_list]
@@ -63,10 +69,11 @@ def write_lightcurves(
         fits_lc[0].header["CCD"] = ref_head.get("CCD", 0)
         fits_lc[0].header["CAMERA"] = ref_head.get("CAMERA", 0)
         fits_lc[0].header["TELESCOP"] = ref_head.get("TELESCOP", "")
-        sky = SkyCoord.from_pixel(xy[0], xy[1], wcs=ref_wcs, mode="all")
-        ra_dec = sky.to_string("decimal").split(" ")
-        fits_lc[0].header["RA_OBJ"] = ra_dec[0]
-        fits_lc[0].header["DEC_OBJ"] = ra_dec[1]
+        if ref_wcs is not None:
+            sky = SkyCoord.from_pixel(xy[0], xy[1], wcs=ref_wcs, mode="all")
+            ra_dec = sky.to_string("decimal").split(" ")
+            fits_lc[0].header["RA_OBJ"] = ra_dec[0]
+            fits_lc[0].header["DEC_OBJ"] = ra_dec[1]
         name = (
             f"{fits_lc[0].header['CAMERA']}-{fits_lc[0].header['CCD']}_"
             f"{i:05d}_x{int(xy[0])}_y{int(xy[1])}.fits"

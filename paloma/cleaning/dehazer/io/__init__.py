@@ -2,9 +2,11 @@
 
 from .fits_io import (
     DEHAZED_PREFIX,
+    denormalize,
     get_fits_files,
     load_fits_directory,
     load_single_fits,
+    normalize,
     save_fits,
 )
 from .layout import (
@@ -12,7 +14,6 @@ from .layout import (
     params_folder_name,
     structured_dehaze_output_dir,
 )
-from .normalize import denormalize, normalize
 
 __all__ = [
     "DEHAZED_PREFIX",

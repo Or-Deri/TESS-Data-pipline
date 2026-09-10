@@ -1,23 +1,54 @@
-"""Top-level orchestration, built on the chain engine.
+"""Dehazing orchestration: ``dehaze`` entry point + fluent facade.
 
-This module handles the orchestration around the algorithm — GPU resolution,
-file discovery, batching, and output markers — and hands each batch to a chain
-from :mod:`tess_dehazing.workflow`. The pipeline is spatio-temporal (3-D): each
-batch is a globally-normalized cube processed as a whole.
-
-``dehaze`` is the source-of-truth entry point for stage ordering
-(``docs/workflow/README.md``). The four steps are intentionally *not* fused; the
-chain's ordering guards enforce this at runtime.
+Handles GPU resolution, file discovery, batching, and output markers, then
+runs :func:`~paloma.cleaning.dehazer.workflow.build_chain` per batch.
 """
+
+from __future__ import annotations
 
 import glob
 import math
 import os
 import time
+from dataclasses import dataclass, field
+from typing import List
 
-from ..core import detect_gpu, is_gpu_free
-from ..io import DEHAZED_PREFIX, get_fits_files, load_fits_directory
-from ..workflow import WorkflowContext, build_chain
+from .core import detect_gpu, is_gpu_free
+from .io import DEHAZED_PREFIX, get_fits_files, load_fits_directory
+from .workflow import (
+    Chain,
+    EstimateAirlight,
+    MoveCubeToDevice,
+    RecoverAndSave,
+    SmoothAirlight,
+    Transmission,
+    WorkflowContext,
+    build_chain,
+)
+
+
+@dataclass
+class DehazeResult:
+    """Outcome of a dehazing run."""
+
+    label: str
+    input_dir: str
+    output_dir: str
+    outputs: List[str] = field(default_factory=list)
+
+    @property
+    def num_outputs(self) -> int:
+        return len(self.outputs)
+
+    @classmethod
+    def collect(cls, label: str, input_dir: str, output_dir: str) -> "DehazeResult":
+        pattern = os.path.join(os.path.abspath(output_dir), f"{DEHAZED_PREFIX}*.fits")
+        return cls(
+            label=label,
+            input_dir=os.path.abspath(input_dir),
+            output_dir=os.path.abspath(output_dir),
+            outputs=sorted(glob.glob(pattern)),
+        )
 
 
 def _resolve_gpu(cfg):
@@ -126,3 +157,46 @@ def dehaze(input_dir, output_dir, cfg):
     print(f"\nPipeline complete in {total:.1f}s.")
     print(f"All FITS written under:\n  {out_abs}\n")
     _write_output_location_marker(output_dir, input_dir, "dehaze")
+    return DehazeResult.collect("default", input_dir, output_dir)
+
+
+class DehazePipeline:
+    """Fluent, method-chaining facade over the (spatio-temporal) stage chain."""
+
+    def __init__(self, cfg, use_gpu=False, batch_label=""):
+        self.ctx = WorkflowContext(cfg=cfg, use_gpu=use_gpu, label=batch_label)
+
+    def load(self, cube, metadata):
+        self.ctx.cube = cube
+        self.ctx.metadata = metadata
+        MoveCubeToDevice().run(self.ctx)
+        return self
+
+    def estimate_airlight(self):
+        EstimateAirlight().run(self.ctx)
+        return self
+
+    def smooth_airlight(self):
+        SmoothAirlight().run(self.ctx)
+        return self
+
+    def transmission(self):
+        Transmission().run(self.ctx)
+        return self
+
+    def recover_and_save(self, output_dir):
+        self.ctx.output_dir = output_dir
+        RecoverAndSave().run(self.ctx)
+        return self
+
+    def run(self, output_dir):
+        """Run Steps 1-4 in order on the already-loaded batch."""
+        self.ctx.output_dir = output_dir
+        chain = Chain([
+            EstimateAirlight(),
+            SmoothAirlight(),
+            Transmission(),
+            RecoverAndSave(),
+        ])
+        chain.run(self.ctx)
+        return self

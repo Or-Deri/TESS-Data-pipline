@@ -1,15 +1,13 @@
 """Command-line interface: ``dehaze``, ``simulate``, ``validate``.
 
-See ``docs/workflow/01-setup.md`` for the full flag contract.
 Paths and engine params default from ``.env`` (``PALOMA_*``); CLI flags win.
 """
 
 import argparse
 
 from .config import DehazeConfig
+from .runner import _get_fits_files, dehaze
 from .io import structured_dehaze_output_dir
-from .pipeline import _get_fits_files
-from .strategies import DehazingContext
 
 
 def _add_common_args(parser):
@@ -30,33 +28,28 @@ def build_parser():
     parser = argparse.ArgumentParser(prog="paloma.cleaning.dehazer")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    dehaze = sub.add_parser("dehaze", help="Run the dehazing pipeline")
-    dehaze.add_argument(
+    dehaze_cmd = sub.add_parser("dehaze", help="Run the dehazing pipeline")
+    dehaze_cmd.add_argument(
         "--input-dir",
         default=None,
         help="FITS input dir (default: PALOMA_INPUT_DIR)",
     )
-    dehaze.add_argument(
+    dehaze_cmd.add_argument(
         "--output-dir",
         default=None,
         help="Output dir (default: PALOMA_OUTPUT_DIR)",
     )
-    dehaze.add_argument(
+    dehaze_cmd.add_argument(
         "--output-base",
         default=None,
         help="Structured-layout base (default: PALOMA_OUTPUT_BASE)",
     )
-    dehaze.add_argument(
+    dehaze_cmd.add_argument(
         "--structured-layout",
         action="store_true",
         help="Use structured output dirs (or PALOMA_STRUCTURED_LAYOUT=true)",
     )
-    dehaze.add_argument(
-        "--strategy",
-        default=None,
-        help="Dehazer strategy label (default: PALOMA_DEHAZE_STRATEGY)",
-    )
-    _add_common_args(dehaze)
+    _add_common_args(dehaze_cmd)
 
     sim = sub.add_parser("simulate", help="Generate a synthetic sequence")
     sim.add_argument("--output-dir", required=True)
@@ -99,7 +92,7 @@ def _build_config(args):
 
 
 def _handle_dehaze(args):
-    from paloma.env import env_str, paths_from_env
+    from paloma.env import paths_from_env
 
     cfg = _build_config(args)
     paths = paths_from_env(load_dotenv=False)
@@ -124,9 +117,7 @@ def _handle_dehaze(args):
     elif not output_dir:
         raise SystemExit("--output-dir or PALOMA_OUTPUT_DIR is required")
 
-    strategy = args.strategy or env_str("PALOMA_DEHAZE_STRATEGY", "default") or "default"
-    context = DehazingContext.from_label(strategy)
-    context.execute(input_dir, output_dir, cfg)
+    dehaze(input_dir, output_dir, cfg)
     return 0
 
 

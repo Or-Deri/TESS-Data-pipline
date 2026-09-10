@@ -1,25 +1,19 @@
-"""The composable stage/chain engine.
+"""Shared composable stage/chain engine (``>>``).
 
 A :class:`Chain` is an ordered sequence of :class:`Stage` objects that each
-transform a shared :class:`WorkflowContext` and return it. Stages compose with
-the ``>>`` operator::
+transform a shared context and return it. Stages compose with ``>>``::
 
     chain = StageA() >> StageB() >> StageC()
-    ctx = chain.run(WorkflowContext(cfg=cfg))
+    ctx = chain.run(ctx)
 
-A :class:`Chain` is itself a :class:`Stage`, so chains nest and concatenate
-freely. Plain callables ``fn(ctx) -> ctx | None`` are wrapped automatically.
-
-This module has no dehazing-specific logic; the concrete stages live in
-:mod:`tess_dehazing.workflow.stages`.
+Contexts must support ``require(*names)`` and ``run_history`` (a list).
+Concrete workflow contexts live under each engine's ``workflow`` package.
 """
 
 from __future__ import annotations
 
 import time
 from typing import Any, Callable, Iterator, List, Optional
-
-from .context import SubtractionWorkflowContext as WorkflowContext
 
 
 class Stage:
@@ -30,28 +24,25 @@ class Stage:
     :meth:`apply`.
     """
 
-    #: Stable identifier used for ordering guards and logging.
     name: str = "stage"
-    #: Names of stages that must have run earlier in the same context.
     requires: tuple = ()
 
-    def apply(self, ctx: WorkflowContext) -> Optional[WorkflowContext]:
+    def apply(self, ctx: Any) -> Optional[Any]:
         raise NotImplementedError
 
-    def run(self, ctx: WorkflowContext) -> WorkflowContext:
+    def run(self, ctx: Any) -> Any:
         if self.requires:
             ctx.require(*self.requires)
         result = self.apply(ctx)
-        if isinstance(result, WorkflowContext):
+        if result is not None:
             ctx = result
         ctx.run_history.append(self.name)
         return ctx
 
-    # -- composition ---------------------------------------------------------
     def __rshift__(self, other: Any) -> "Chain":
         return Chain([self]) >> other
 
-    def __call__(self, ctx: WorkflowContext) -> WorkflowContext:
+    def __call__(self, ctx: Any) -> Any:
         return self.run(ctx)
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
@@ -61,24 +52,16 @@ class Stage:
 class FunctionStage(Stage):
     """Adapter that turns a plain ``fn(ctx) -> ctx | None`` into a Stage."""
 
-    def __init__(self, fn: Callable[[WorkflowContext], Any], name: Optional[str] = None):
+    def __init__(self, fn: Callable[[Any], Any], name: Optional[str] = None):
         self.fn = fn
         self.name = name or getattr(fn, "__name__", "fn")
 
-    def apply(self, ctx: WorkflowContext) -> Optional[WorkflowContext]:
+    def apply(self, ctx: Any) -> Optional[Any]:
         return self.fn(ctx)
 
 
 def as_stage(fn: Optional[Callable] = None, *, name: Optional[str] = None):
-    """Decorator / wrapper making a function usable inside a chain.
-
-    Usage::
-
-        @as_stage(name="my_step")
-        def my_step(ctx):
-            ...
-            return ctx
-    """
+    """Decorator / wrapper making a function usable inside a chain."""
     if fn is None:
         return lambda f: FunctionStage(f, name)
     return FunctionStage(fn, name)
@@ -108,14 +91,12 @@ class Chain(Stage):
         """Fluent alias for the ``>>`` operator."""
         return self >> other
 
-    def apply(self, ctx: WorkflowContext) -> WorkflowContext:
+    def apply(self, ctx: Any) -> Any:
         for stage in self.stages:
             ctx = stage.run(ctx)
         return ctx
 
-    # A chain adds its members to history individually (via their own run),
-    # so it should not also append its own name.
-    def run(self, ctx: WorkflowContext) -> WorkflowContext:
+    def run(self, ctx: Any) -> Any:
         if self.requires:
             ctx.require(*self.requires)
         return self.apply(ctx)

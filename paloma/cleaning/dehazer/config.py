@@ -1,7 +1,7 @@
 """Configuration for the dehazing pipeline.
 
 The defaults here are the canonical reproduction constants documented in
-``docs/workflow/01-setup.md``. Changing any of them changes numeric output.
+``README.md``. Changing any of them changes numeric output.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """Airlight estimation (Step 1 back-end).
 
 Closed-form pairwise airlight plus the iteratively-reweighted global estimate.
-See ``docs/workflow/03-estimate-airlight.md``.
+See ``README.md``.
 """
 
 import numpy as np

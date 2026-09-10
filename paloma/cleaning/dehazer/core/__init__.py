@@ -18,8 +18,7 @@ from .backend import (
 )
 from .guided_filter import guided_filter
 from .patches import extract_patches, find_pairs
-from .recovery import recover_image
-from .transmission import recover_transmission_map
+from .recover import recover_image, recover_transmission_map
 
 __all__ = [
     # backend

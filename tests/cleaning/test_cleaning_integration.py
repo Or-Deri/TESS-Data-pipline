@@ -1,7 +1,7 @@
 """Pipeline cleaning ↔ dehazer integration (Cleaner / CleaningStage).
 
-These tests cover the adapter path the rest of the suite does not:
-``CleaningStage`` → ``DehazerCleaner`` → ``DehazingContext`` / ``dehaze``.
+These tests cover the adapter path:
+``CleaningStage`` → ``DehazerCleaner`` → ``dehaze``.
 They stay on the synthetic fixtures — no second ground-truth run.
 """
 
@@ -20,9 +20,7 @@ from paloma import (
     available_cleaners,
     create_cleaner,
 )
-from paloma.cleaning.dehazer.config import DehazeConfig
-from paloma.cleaning.dehazer.pipeline import dehaze
-from paloma.cleaning.dehazer.strategies.base import DehazeResult
+from paloma.cleaning.dehazer import DehazeConfig, DehazeResult, dehaze
 
 
 def test_dehazer_is_registered():
@@ -102,7 +100,7 @@ def test_request_params_override_constructor(synthetic_fits, cfg_kwargs, tmp_pat
     """Per-request params win over cleaner constructor params."""
     out = tmp_path / "out"
     ctor = dict(cfg_kwargs)
-    ctor["num_frames"] = 2  # would under-read if request did not override
+    ctor["num_frames"] = 2
     stage = CleaningStage("dehazer", **ctor)
 
     result = stage.run(
@@ -124,11 +122,9 @@ def test_empty_outputs_stop_pipeline(monkeypatch, tmp_path):
         output_dir=str(tmp_path / "out"),
         outputs=[],
     )
-    fake_ctx = MagicMock()
-    fake_ctx.execute.return_value = empty
     monkeypatch.setattr(
-        "paloma.cleaning.dehazer.DehazingContext.from_label",
-        classmethod(lambda cls, label, **kw: fake_ctx),
+        "paloma.cleaning.dehazer.runner.dehaze",
+        lambda *a, **k: empty,
     )
 
     stage = CleaningStage("dehazer")

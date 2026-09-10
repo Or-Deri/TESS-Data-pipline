@@ -1,7 +1,8 @@
 """Workflow chain engine and concrete subtraction stages."""
 
+from paloma.core.chain import Chain, FunctionStage, Stage, as_stage, timed
+
 from .context import SubtractionWorkflowContext
-from .engine import Chain, FunctionStage, Stage, as_stage, timed
 from .stages import (
     BuildReference,
     DetectAndCrossMatch,

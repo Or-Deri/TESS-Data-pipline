@@ -1,4 +1,9 @@
-"""Preprocessing: quality filter, cutout, WCS alignment."""
+"""Preprocessing: quality filter, cutout, WCS alignment.
+
+Accepts both raw TESS FFIs (science HDU 1 + WCS) and cleaned PrimaryHDU
+frames from the dehazer (extension 0, often no WCS) so Cleaning → Subtraction
+chains without a manual config swap.
+"""
 
 from __future__ import annotations
 
@@ -27,6 +32,23 @@ def remove_processed_files(file_list: list[str], out_dir: str, in_dir: str) -> l
     return [f for f in file_list if f not in finished_in]
 
 
+def science_hdu_index(hdul: fits.HDUList, preferred: int) -> int:
+    """Return a 2-D image HDU index, preferring ``preferred`` when valid."""
+    if 0 <= preferred < len(hdul):
+        data = hdul[preferred].data
+        if data is not None and getattr(data, "ndim", 0) == 2:
+            return preferred
+    for i, hdu in enumerate(hdul):
+        data = hdu.data
+        if data is not None and getattr(data, "ndim", 0) == 2:
+            return i
+    raise OSError("no 2-D image HDU")
+
+
+def _has_wcs(header: fits.Header) -> bool:
+    return "CTYPE1" in header and "CTYPE2" in header
+
+
 def file_filter(
     file_list: list[str],
     cfg: SubtractionConfig,
@@ -39,12 +61,13 @@ def file_filter(
     for path in file_list:
         try:
             with fits.open(path) as hdul:
-                data = hdul[cfg.fits_extension].data
-                head = hdul[cfg.fits_extension].header
+                idx = science_hdu_index(hdul, cfg.fits_extension)
+                data = hdul[idx].data
+                head = hdul[idx].header
             if data is None:
                 raise OSError("empty HDU")
             header_lengths.append(len(head))
-        except (OSError, TypeError, IndexError):
+        except (OSError, TypeError, IndexError, ValueError):
             rejected.append(path)
             if save_rejected and out_path:
                 with open(os.path.join(out_path, "rejectedFiles.txt"), "a+", encoding="utf-8") as fp:
@@ -72,9 +95,12 @@ def file_filter(
 
 def align_image(ref_head: fits.Header, img: np.ndarray, head: fits.Header, cfg: SubtractionConfig):
     head = head.copy()
-    head["NAXIS1"] = cfg.cutout_size[0]
-    head["NAXIS2"] = cfg.cutout_size[1]
-    head["CRPIX1"] = cfg.crpix1
+    # hcongrid requires NAXIS* to match the array; never force cutout_size here
+    # (cleaned frames may already be cropped to a different geometry).
+    head["NAXIS1"] = int(img.shape[1])
+    head["NAXIS2"] = int(img.shape[0])
+    if "CRPIX1" not in head:
+        head["CRPIX1"] = cfg.crpix1
     img = hcongrid(img, head, ref_head)
     for key in ("CTYPE1", "CTYPE2", "CRVAL1", "CRVAL2", "CRPIX1", "CRPIX2",
                 "CD1_1", "CD1_2", "CD2_1", "CD2_2"):
@@ -85,13 +111,42 @@ def align_image(ref_head: fits.Header, img: np.ndarray, head: fits.Header, cfg: 
     return img, head
 
 
+def _cutout_fits(img: np.ndarray, head: fits.Header, cfg: SubtractionConfig) -> tuple[np.ndarray, fits.Header]:
+    """Cut out the configured window when geometry + WCS allow it."""
+    head = head.copy()
+    target_w, target_h = int(cfg.cutout_size[0]), int(cfg.cutout_size[1])
+
+    # Already at (or below) target size — e.g. dehazer-cropped PrimaryHDU frames.
+    if img.shape[1] <= target_w and img.shape[0] <= target_h:
+        head["NAXIS1"] = int(img.shape[1])
+        head["NAXIS2"] = int(img.shape[0])
+        return img, head
+
+    if not _has_wcs(head):
+        head["NAXIS1"] = int(img.shape[1])
+        head["NAXIS2"] = int(img.shape[0])
+        return img, head
+
+    try:
+        cut = Cutout2D(img, cfg.cutout_center, cfg.cutout_size, wcs=WCS(head))
+        data = cut.data
+    except Exception:
+        data = img
+
+    head["NAXIS1"] = int(data.shape[1])
+    head["NAXIS2"] = int(data.shape[0])
+    if data.shape == (target_h, target_w):
+        head["CRPIX1"] = cfg.crpix1
+    return data, head
+
+
 def preprocess_images(
     in_dir: str,
     out_dir: str,
     cfg: SubtractionConfig,
     files: list[str] | None = None,
 ) -> tuple[list[str], bool]:
-    """Preprocess raw FFIs; return (preprocessed paths, did_work)."""
+    """Preprocess FFIs (raw or cleaned); return (preprocessed paths, did_work)."""
     os.makedirs(out_dir, exist_ok=True)
     raw_all = files or get_file_names(in_dir, "*.fits")
     if cfg.num_frames is not None:
@@ -107,22 +162,31 @@ def preprocess_images(
         return existing, False
 
     with fits.open(pending[0]) as hdul:
-        ref_img = hdul[cfg.fits_extension].data
-        ref_head = hdul[cfg.fits_extension].header.copy()
-    ref_head["CRPIX1"] = cfg.crpix1
-    ref_head["NAXIS1"] = cfg.cutout_size[0]
-    ref_head["NAXIS2"] = cfg.cutout_size[1]
+        idx = science_hdu_index(hdul, cfg.fits_extension)
+        ref_img = hdul[idx].data
+        ref_head = hdul[idx].header.copy()
+    ref_img, ref_head = _cutout_fits(ref_img, ref_head, cfg)
+    ref_head["NAXIS1"] = int(ref_img.shape[1])
+    ref_head["NAXIS2"] = int(ref_img.shape[0])
 
     outputs = get_file_names(out_dir, "*.fits")
     for path in pending:
         with fits.open(path) as hdul:
-            img = hdul[cfg.fits_extension].data
-            head = hdul[cfg.fits_extension].header.copy()
-        img = Cutout2D(img, cfg.cutout_center, cfg.cutout_size, wcs=WCS(head)).data
-        head["NAXIS1"] = cfg.cutout_size[0]
-        head["NAXIS2"] = cfg.cutout_size[1]
-        head["CRPIX1"] = cfg.crpix1
-        img, head = align_image(ref_head, img, head, cfg)
+            idx = science_hdu_index(hdul, cfg.fits_extension)
+            img = hdul[idx].data
+            head = hdul[idx].header.copy()
+        img, head = _cutout_fits(img, head, cfg)
+        head["NAXIS1"] = int(img.shape[1])
+        head["NAXIS2"] = int(img.shape[0])
+        if _has_wcs(head) and _has_wcs(ref_head):
+            try:
+                img, head = align_image(ref_head, img, head, cfg)
+            except Exception:
+                head["align"] = "skip"
+                head["bksub"] = "yes"
+        else:
+            head["align"] = "skip"
+            head["bksub"] = "yes"
         out_path = Path(out_dir) / Path(path).name
         fits.PrimaryHDU(img, header=head).writeto(out_path, overwrite=True)
         outputs.append(str(out_path))

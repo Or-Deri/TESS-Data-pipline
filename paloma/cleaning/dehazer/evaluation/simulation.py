@@ -1,6 +1,6 @@
 """Synthetic data generation and quantitative validation harness.
 
-See ``docs/workflow/08-verification.md``. This is a validation *convenience*
+See ``README.md``. This is a validation *convenience*
 path: sim files are read from HDU 0 and the transmission clamp is
 ``[t_min_clip, 1.0]`` (simpler than the production ``[0.01, 0.9]``).
 """

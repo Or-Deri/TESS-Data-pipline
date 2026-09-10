@@ -1,28 +1,22 @@
-"""Paloma — cleaning, image subtraction, + pipeline stage shields.
+"""Paloma — cleaning and image subtraction pipeline.
 
-**Owned / real:** cleaning (:class:`~paloma.core.cleaner.Cleaner`,
-:class:`~paloma.stages.cleaning.CleaningStage`) and image subtraction
-(:class:`~paloma.core.subtractor.Subtractor`,
-:class:`~paloma.stages.image_subtraction.ImageSubtractionStage`).
+Two stages: :class:`~paloma.pipeline.CleaningStage` then
+:class:`~paloma.pipeline.ImageSubtractionStage`.
 
-**Shields only:** stub stages for the rest of the pipeline shape.
+Run both via :class:`~paloma.pipeline.Pipeline` / ``python -m paloma``.
 """
 
 __version__ = "0.1.0"
 
-from .config import CleaningConfig, ImageSubtractionConfig
+from .config import CleaningConfig, ImageSubtractionConfig, PipelineConfig
 from .env import IOPaths, load_env, paths_from_env
 from .core import (
     BaseCleaner,
     BaseSubtractor,
-    ClassificationResult,
     Cleaner,
     CleaningRequest,
     CleaningResult,
-    FeatureVector,
-    LightCurve,
     PipelineStage,
-    ProcessedLightCurve,
     SubtractionRequest,
     SubtractionResult,
     Subtractor,
@@ -38,20 +32,18 @@ from . import cleaning  # noqa: E402  # registers built-in cleaners
 from . import image_subtraction  # noqa: E402  # registers default subtractor
 from .cleaning import DehazerCleaner  # noqa: E402
 from .image_subtraction import DefaultSubtractor  # noqa: E402
-from .stages import (  # noqa: E402
-    ClassificationStage,
+from .pipeline import (  # noqa: E402
     CleaningStage,
-    DetrendingStage,
-    FeatureExtractionStage,
     ImageSubtractionStage,
-    IngestionStage,
-    NormalizationStage,
-    ValidationStage,
+    Pipeline,
+    PipelineResult,
 )
 
 __all__ = [
-    # Framework
     "PipelineStage",
+    "Pipeline",
+    "PipelineConfig",
+    "PipelineResult",
     # Cleaning
     "Cleaner",
     "BaseCleaner",
@@ -77,16 +69,5 @@ __all__ = [
     "load_env",
     "paths_from_env",
     "IOPaths",
-    # Shields
-    "IngestionStage",
-    "ValidationStage",
-    "DetrendingStage",
-    "NormalizationStage",
-    "FeatureExtractionStage",
-    "ClassificationStage",
-    "LightCurve",
-    "ProcessedLightCurve",
-    "FeatureVector",
-    "ClassificationResult",
     "__version__",
 ]

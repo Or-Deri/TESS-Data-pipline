@@ -1,6 +1,6 @@
 """Patch extraction and co-occurrence pairing (Step 1 front-end).
 
-See ``docs/workflow/03-estimate-airlight.md``.
+See ``README.md``.
 """
 
 import numpy as np

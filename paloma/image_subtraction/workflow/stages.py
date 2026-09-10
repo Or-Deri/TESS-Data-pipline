@@ -20,7 +20,7 @@ from ..core.masters import build_final_master, make_master
 from ..core.ois import optimal_subtract
 from ..core.ois_c import run_c_subtraction
 from ..core.photometry import measure_flux_timestamps, propagate_wcs, write_lightcurves
-from ..core.preprocess import get_file_names, preprocess_images
+from ..core.preprocess import _has_wcs, get_file_names, preprocess_images
 from ..core.sources import (
     cross_match,
     filter_source_list,
@@ -29,7 +29,8 @@ from ..core.sources import (
     pixel_to_sky,
 )
 from ..io import SUBTRACTED_PREFIX, background_subtract, save_fits
-from .engine import Stage
+from paloma.core.chain import Stage
+
 
 
 class PreprocessFrames(Stage):
@@ -40,7 +41,15 @@ class PreprocessFrames(Stage):
         print(f"\n{ctx.prefix}--- Step 1/5: Preprocessing raw FFIs ---")
         files, did_work = preprocess_images(ctx.input_dir, ctx.layout.preprocessed, cfg)
         if not files:
-            raise RuntimeError("no FITS frames available after preprocessing")
+            rejected = os.path.join(ctx.layout.preprocessed, "rejectedFiles.txt")
+            hint = (
+                f" (see {rejected})"
+                if os.path.isfile(rejected)
+                else " (check input dir and DQUALITY filter settings)"
+            )
+            raise RuntimeError(
+                f"no FITS frames available after preprocessing{hint}"
+            )
         ctx.preprocessed_files = files
         ctx.raw_files = get_file_names(ctx.input_dir, "*.fits")
         if not did_work:
@@ -120,6 +129,19 @@ class OptimalSubtract(Stage):
                 )
 
             residuals: list[str] = []
+            use_c = bool(cfg.use_c_backend)
+            if use_c:
+                code_dir = cfg.code_dir or str(Path(ctx.output_dir) / "_c_scratch")
+                c_bin = Path(code_dir) / "a.out"
+                repo_aout = Path(__file__).resolve().parents[3] / "build" / "a.out"
+                if not c_bin.is_file() and not repo_aout.is_file():
+                    print(
+                        f"{ctx.prefix}C backend a.out not found "
+                        f"(looked in {code_dir} and build/); "
+                        "falling back to pure-Python OIS"
+                    )
+                    use_c = False
+
             for path in ctx.preprocessed_files:
                 img, head = fits.getdata(path, header=True)
                 sci, median = background_subtract(img)
@@ -133,7 +155,7 @@ class OptimalSubtract(Stage):
                 )
                 if n_used == 0:
                     raise RuntimeError(f"no kernel stars selected for {path}")
-                if cfg.use_c_backend:
+                if use_c:
                     code_dir = cfg.code_dir or str(Path(ctx.output_dir) / "_c_scratch")
                     diff = run_c_subtraction(
                         ref_bg,
@@ -202,19 +224,26 @@ class DetectAndCrossMatch(Stage):
         for elt in sources_per_image[1:]:
             ref_starlist = cross_match(ref_starlist, np.asarray(elt), cfg.match_radius)
 
-        ref_wcs = WCS(fits.getheader(ctx.reference_fits))
-        sky_coords = pixel_to_sky(ref_starlist, ref_wcs)
         csv_path = os.path.join(ctx.layout.sources, "found_sources.csv")
+        ref_head = fits.getheader(ctx.reference_fits)
         with open(csv_path, "w+", newline="", encoding="utf-8") as fp:
             writer = csv.writer(fp)
-            writer.writerow(["index", "ra", "dec"])
-            for i, sc in enumerate(sky_coords):
-                writer.writerow([i, sc.ra.deg, sc.dec.deg])
+            if _has_wcs(ref_head):
+                sky_coords = pixel_to_sky(ref_starlist, WCS(ref_head))
+                writer.writerow(["index", "ra", "dec"])
+                for i, sc in enumerate(sky_coords):
+                    writer.writerow([i, sc.ra.deg, sc.dec.deg])
+            else:
+                # Cleaned / WCS-stripped frames: keep pixel positions.
+                writer.writerow(["index", "x", "y"])
+                for i, xy in enumerate(ref_starlist):
+                    writer.writerow([i, xy[0], xy[1]])
 
         ctx.source_list = ref_starlist
         ctx.sources_csv = csv_path
         print(f"{ctx.prefix}Found {len(ref_starlist)} sources after cross-matching")
         return ctx
+
 
 
 class ExtractLightCurves(Stage):

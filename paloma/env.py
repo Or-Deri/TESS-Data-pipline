@@ -27,6 +27,8 @@ ENV_KEYS = frozenset(
         "PALOMA_OUTPUT_DIR",
         "PALOMA_OUTPUT_BASE",
         "PALOMA_STRUCTURED_LAYOUT",
+        "PALOMA_CLEANED_DIR",
+        "PALOMA_SUBTRACTED_DIR",
         # Cleaning stage
         "PALOMA_CLEANER",
         "PALOMA_DEHAZE_STRATEGY",

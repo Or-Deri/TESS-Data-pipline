@@ -1,9 +1,7 @@
 """The common pipeline-stage interface.
 
-Every processing step implements :class:`PipelineStage`. Cleaning owns a real
-stage; other stages are shields that raise :class:`NotImplementedError`.
-
-A stage may return ``None`` to stop the chain early.
+Every processing step implements :class:`PipelineStage`. A stage may return
+``None`` to stop the chain early.
 """
 
 from __future__ import annotations

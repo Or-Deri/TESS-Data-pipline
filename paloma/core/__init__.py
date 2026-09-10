@@ -1,4 +1,4 @@
-"""Core Paloma primitives used by cleaning and stage shields."""
+"""Core Paloma primitives for cleaning and image subtraction."""
 
 from .cleaner import (
     BaseCleaner,
@@ -15,23 +15,21 @@ from .subtractor import (
     register_subtractor,
 )
 from .stage import PipelineStage
+from .chain import Chain, FunctionStage, Stage, as_stage, timed
 from .types import (
-    ClassificationResult,
     CleaningRequest,
     CleaningResult,
-    FeatureVector,
-    LightCurve,
-    ProcessedLightCurve,
     SubtractionRequest,
     SubtractionResult,
 )
 
 __all__ = [
     "PipelineStage",
-    "LightCurve",
-    "ProcessedLightCurve",
-    "FeatureVector",
-    "ClassificationResult",
+    "Stage",
+    "Chain",
+    "FunctionStage",
+    "as_stage",
+    "timed",
     "CleaningRequest",
     "CleaningResult",
     "SubtractionRequest",

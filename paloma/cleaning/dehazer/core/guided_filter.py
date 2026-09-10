@@ -1,6 +1,6 @@
 """Edge-preserving guided filter used to refine transmission maps.
 
-See ``docs/workflow/05-transmission.md``.
+See ``README.md``.
 """
 
 import numpy as np
@@ -28,7 +28,7 @@ def guided_filter(guide, src, radius, eps):
 
     CPU fast path uses ``cv2.ximgproc.guidedFilter`` in float32 when available;
     otherwise the pure array float64 box-filter formulation is used (also the
-    GPU path). See ``docs/workflow/05-transmission.md``.
+    GPU path). See ``README.md``.
     """
     xp = get_array_module(guide)
 

@@ -8,7 +8,19 @@ import numpy as np
 from astropy.io import fits
 
 from ..config import SubtractionConfig
-from .preprocess import align_image, get_file_names
+from .preprocess import _has_wcs, align_image, get_file_names
+
+
+def _combine_aligned(rhead: fits.Header, combined: np.ndarray, cfg: SubtractionConfig):
+    """Align ``combined`` onto ``rhead`` when WCS exists; otherwise pass through."""
+    if _has_wcs(rhead):
+        return align_image(rhead, combined, rhead.copy(), cfg)
+    head = rhead.copy()
+    head["NAXIS1"] = combined.shape[1]
+    head["NAXIS2"] = combined.shape[0]
+    head["align"] = "skip"
+    head["bksub"] = "yes"
+    return combined, head
 
 
 def make_master(file_names: list[str], in_dir: str, out_dir: str, cfg: SubtractionConfig) -> list[str]:
@@ -38,7 +50,7 @@ def make_master(file_names: list[str], in_dir: str, out_dir: str, cfg: Subtracti
 
         if (ii == len(file_names) - 1) or ((ii + 1) % blknum == 0):
             combined = np.median(all_data[:cnt], axis=0)
-            img, head = align_image(rhead, combined, rhead.copy(), cfg)
+            img, head = _combine_aligned(rhead, combined, cfg)
             hdu = fits.PrimaryHDU(img, header=head)
             hdu.header["NUMCOB"] = cnt
             hdu.header["EXPOSURE"] = float(np.median(expt[:cnt]))
@@ -74,7 +86,7 @@ def build_final_master(file_names: list[str], in_dir: str, out_dir: str, cfg: Su
         num[ii] = fits.getval(path, "NUMCOB")
 
     combined = np.median(all_data, axis=0)
-    img, head = align_image(rhead, combined, rhead.copy(), cfg)
+    img, head = _combine_aligned(rhead, combined, cfg)
     hdu = fits.PrimaryHDU(img, header=head)
     hdu.header["NUMCOB"] = float(np.sum(num))
     hdu.header["EXPOSURE"] = float(np.median(expt))

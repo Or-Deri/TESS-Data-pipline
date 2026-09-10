@@ -1,19 +1,9 @@
-"""Shared domain types: cleaning contract (real) + shields for other stages.
-
-**Owned / real (cleaning):** :class:`CleaningRequest`, :class:`CleaningResult`.
-
-**Shields only:** :class:`LightCurve`, :class:`ProcessedLightCurve`,
-:class:`FeatureVector`, :class:`ClassificationResult` — empty shells so other
-stage owners can plug in later without inventing types ad hoc.
-"""
+"""Shared domain types for cleaning and image subtraction."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Sequence
-
-
-# --- Cleaning (owned / real) -------------------------------------------------
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -46,9 +36,6 @@ class CleaningResult:
         return len(self.outputs)
 
 
-# --- Image subtraction (owned / real) ----------------------------------------
-
-
 @dataclass
 class SubtractionRequest:
     """Input to the image-subtraction stage (typically cleaned FFIs from cleaning)."""
@@ -65,11 +52,20 @@ class SubtractionRequest:
         output_dir: str,
         **params: Any,
     ) -> "SubtractionRequest":
-        """Build a request chained from a :class:`CleaningResult`."""
+        """Build a request chained from a :class:`CleaningResult`.
+
+        Cleaned frames are PrimaryHDU (ext 0) and already accepted by cleaning,
+        so DQUALITY filtering and the raw-FFI extension default are overridden
+        unless the caller passes explicit values.
+        """
+        defaults = {
+            "apply_data_quality_filter": False,
+            "fits_extension": 0,
+        }
         return cls(
             input_dir=cleaning.output_dir,
             output_dir=output_dir,
-            params=dict(params),
+            params={**defaults, **params},
             metadata={"cleaning": cleaning.metadata, **cleaning.metadata},
         )
 
@@ -89,41 +85,3 @@ class SubtractionResult:
     @property
     def num_outputs(self) -> int:
         return len(self.outputs)
-
-
-# --- Shields for non-cleaning stages ----------------------------------------
-
-
-@dataclass
-class LightCurve:
-    """Shield: a star's brightness over time."""
-
-    time: Sequence[float] = ()
-    flux: Sequence[float] = ()
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class ProcessedLightCurve:
-    """Shield: cleaned / detrended / normalized light curve."""
-
-    time: Sequence[float] = ()
-    flux: Sequence[float] = ()
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class FeatureVector:
-    """Shield: numeric features for classification."""
-
-    features: Dict[str, float] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class ClassificationResult:
-    """Shield: final label for a light curve."""
-
-    label: str = "unknown"  # "transit" | "EB" | "dwarf_star" | "unknown"
-    confidence: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)

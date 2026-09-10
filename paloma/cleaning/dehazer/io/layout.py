@@ -1,6 +1,6 @@
 """Structured (notebook-style) output path construction.
 
-See ``docs/workflow/06-recover-save.md`` and ``02-load-normalize.md``.
+See ``README.md``.
 """
 
 import os

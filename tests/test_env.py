@@ -6,7 +6,7 @@ import re
 from dataclasses import fields
 from pathlib import Path
 
-from paloma import CleaningConfig, ImageSubtractionConfig, paths_from_env
+from paloma import CleaningConfig, ImageSubtractionConfig, PipelineConfig, paths_from_env
 from paloma.cleaning.dehazer import DehazeConfig
 from paloma.env import ENV_KEYS, REPO_ROOT, load_env
 from paloma.image_subtraction import SubtractionConfig
@@ -61,6 +61,14 @@ def test_from_env_loads_all_engine_params(monkeypatch):
     img = ImageSubtractionConfig.from_env(load_dotenv=False)
     assert img.subtractor == "default"
     assert img.params["blknum"] == sub.blknum
+
+    pipeline = PipelineConfig.from_env(load_dotenv=False)
+    assert pipeline.cleaning.cleaner == cleaning.cleaner
+    assert pipeline.subtraction.subtractor == img.subtractor
+    assert pipeline.input_dir == paths.input_dir
+    assert pipeline.output_dir == paths.output_dir
+    assert pipeline.resolve_cleaned_dir().endswith("cleaned")
+    assert pipeline.resolve_subtracted_dir().endswith("subtracted")
 
 
 def test_default_subtractor_builds_config_from_params(tmp_path):
