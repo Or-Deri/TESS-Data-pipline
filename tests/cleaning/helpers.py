@@ -1,41 +1,9 @@
-"""Shared helpers for cleaning / dehazer tests."""
+"""Shared helpers for cleaning tests."""
 
 from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
-
-# Small, fast config that still exercises every stage (patch pairing, guided
-# filter, temporal smoothing). Overrides keep crops/radius tiny for speed.
-CFG_KWARGS = {
-    "num_frames": 4,
-    "crop_bottom": 2,
-    "crop_sides": 2,
-    "patch_size": 9,
-    "variance_threshold": 5e-5,
-    "nn_dist_threshold": 0.3,
-    "sigma_temporal": 1.5,
-    "t_min_clip": 0.01,
-    "guided_filter_radius": 3,
-    "guided_filter_eps": 0.001,
-    "num_iterations": 10,
-    "fits_extension": 1,
-    "max_patches": None,
-    "batch_size": None,
-}
-
-
-def make_frame(height: int, width: int, t: int) -> np.ndarray:
-    """Deterministic synthetic FFI-like frame with recurring texture + haze."""
-    yy, xx = np.mgrid[0:height, 0:width].astype(np.float64)
-    freq = 2.0 * np.pi / 7.0
-    texture = np.sin(xx * freq) * np.cos(yy * freq)
-    scene = 0.5 + 0.3 * np.sin(xx * 0.05) + 0.2 * np.cos(yy * 0.04)
-    haze = 0.1 * t
-    base = scene + 0.15 * texture + haze
-    rng = np.random.default_rng(1234 + t)
-    base = base + rng.normal(0.0, 1e-3, size=base.shape)
-    return (base * 1000.0 + 500.0).astype(np.float32)
 
 
 def _read(path: Path) -> np.ndarray:

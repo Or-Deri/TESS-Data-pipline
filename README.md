@@ -69,9 +69,10 @@ python -m paloma.image_subtraction subtract
 ## Tests
 
 ```bash
-pytest tests                 # includes slow ground-truth
-pytest -m "not slow"         # skip full-res ground-truth
+pytest tests
 ```
+
+Ground-truth tests run with the rest of the suite when their FITS fixtures are present under `tests/data/`; otherwise they are skipped.
 
 ## Architecture
 

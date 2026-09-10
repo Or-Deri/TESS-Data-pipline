@@ -18,6 +18,7 @@ from astropy.wcs import WCS
 from FITS_tools.hcongrid import hcongrid
 
 from ..config import SubtractionConfig
+from paloma.core.log import info
 
 
 def get_file_names(directory: str, pattern: str = "*.fits") -> list[str]:
@@ -169,6 +170,7 @@ def preprocess_images(
     ref_head["NAXIS1"] = int(ref_img.shape[1])
     ref_head["NAXIS2"] = int(ref_img.shape[0])
 
+    info(f"Preprocessing {len(pending)} frames ...")
     outputs = get_file_names(out_dir, "*.fits")
     for path in pending:
         with fits.open(path) as hdul:

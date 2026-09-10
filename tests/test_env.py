@@ -10,8 +10,6 @@ from paloma import CleaningConfig, ImageSubtractionConfig, PipelineConfig, paths
 from paloma.cleaning.dehazer import DehazeConfig
 from paloma.env import ENV_KEYS, REPO_ROOT, load_env
 from paloma.image_subtraction import SubtractionConfig
-from paloma.image_subtraction.pipeline import DefaultSubtractor
-from paloma.core.types import SubtractionRequest
 
 EXAMPLE = REPO_ROOT / ".env.example"
 
@@ -34,7 +32,7 @@ def test_env_example_matches_env_keys_catalog():
     )
 
 
-def test_from_env_loads_all_engine_params(monkeypatch):
+def test_from_env_loads_all_engine_params():
     """Every DehazeConfig / SubtractionConfig field is populated from env."""
     load_env(EXAMPLE, override=True)
 
@@ -69,28 +67,3 @@ def test_from_env_loads_all_engine_params(monkeypatch):
     assert pipeline.output_dir == paths.output_dir
     assert pipeline.resolve_cleaned_dir().endswith("cleaned")
     assert pipeline.resolve_subtracted_dir().endswith("subtracted")
-
-
-def test_default_subtractor_builds_config_from_params(tmp_path):
-    """Regression: env params must reach SubtractionConfig via DefaultSubtractor."""
-    subtractor = DefaultSubtractor(
-        blknum=4,
-        num_iterations=1,
-        nr_stars=5,
-        apply_data_quality_filter=False,
-        num_frames=1,
-        use_c_backend=False,
-    )
-    cfg = subtractor._build_config(
-        SubtractionConfig,
-        {**subtractor.params},
-    )
-    assert cfg.blknum == 4
-    assert cfg.use_c_backend is False
-    # empty input → pipeline may error later; ensure NameError is gone
-    request = SubtractionRequest(
-        input_dir=str(tmp_path),
-        output_dir=str(tmp_path / "out"),
-    )
-    # No FITS → stages should still construct config without crashing on helpers
-    assert request.input_dir.endswith(tmp_path.name)

@@ -12,6 +12,8 @@ from astropy.io import fits
 from scipy.ndimage import gaussian_filter, gaussian_filter1d
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
+from paloma.core.log import info
+
 from ..config import DehazeConfig
 from ..core import (
     estimate_airlight,
@@ -156,7 +158,7 @@ def run_validation(sim_dir, output_dir, cfg=None):
     fits.PrimaryHDU(np.asarray(recovered, dtype=np.float64)).writeto(
         os.path.join(output_dir, "recovered_mid.fits"), overwrite=True
     )
-    print(
+    info(
         f"[validate] MSE={metrics['mse']:.6g} "
         f"PSNR={metrics['psnr']:.4f} dB SSIM={metrics['ssim']:.4f}"
     )

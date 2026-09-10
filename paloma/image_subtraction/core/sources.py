@@ -8,6 +8,21 @@ from astropy.stats import sigma_clipped_stats
 from astropy.wcs import WCS
 from photutils.detection import DAOStarFinder
 
+try:
+    import photutils
+
+    photutils.future_column_names = True
+except Exception:
+    pass
+
+
+def _centroid_xy(sources) -> list[tuple[float, float]]:
+    """Read (x, y) from a photutils table (new or deprecated column names)."""
+    names = set(sources.colnames)
+    xkey = "x_centroid" if "x_centroid" in names else "xcentroid"
+    ykey = "y_centroid" if "y_centroid" in names else "ycentroid"
+    return list(zip(sources[xkey], sources[ykey]))
+
 
 def find_sources(
     img: np.ndarray,
@@ -27,16 +42,14 @@ def find_sources(
     if sources is None:
         pixel_coord: list[tuple[float, float]] = []
     else:
-        pixel_coord = list(zip(sources["xcentroid"], sources["ycentroid"]))
+        pixel_coord = _centroid_xy(sources)
 
     inv_pixel_coord: list[tuple[float, float]] = []
     if inverse:
         inv_sources = daofind(-(img - median))
         if inv_sources is not None:
             inv_pixel_coord = [
-                (x, y)
-                for x, y in zip(inv_sources["xcentroid"], inv_sources["ycentroid"])
-                if (x, y) not in pixel_coord
+                xy for xy in _centroid_xy(inv_sources) if xy not in pixel_coord
             ]
 
     positions: list[tuple[float, float]] = []

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from paloma import (
@@ -16,20 +15,6 @@ from paloma import (
     PipelineConfig,
     SubtractionResult,
 )
-from paloma.env import ENV_KEYS, REPO_ROOT, load_env
-
-
-def test_pipeline_config_from_env_example():
-    load_env(REPO_ROOT / ".env.example", override=True)
-    cfg = PipelineConfig.from_env(load_dotenv=False)
-    assert cfg.cleaning.cleaner == "dehazer"
-    assert cfg.subtraction.subtractor == "default"
-    assert cfg.input_dir is not None
-    assert cfg.output_dir is not None
-    assert "PALOMA_CLEANED_DIR" in ENV_KEYS
-    assert "PALOMA_SUBTRACTED_DIR" in ENV_KEYS
-    assert cfg.resolve_cleaned_dir().endswith("cleaned")
-    assert cfg.resolve_subtracted_dir().endswith("subtracted")
 
 
 def test_pipeline_chains_cleaning_then_subtraction(tmp_path):
@@ -97,6 +82,30 @@ def test_pipeline_stops_when_cleaning_returns_none(tmp_path):
     assert result.cleaning is None
     assert result.subtraction is None
     subtraction_stage.run_after_cleaning.assert_not_called()
+
+
+def test_pipeline_records_cleaning_when_subtraction_returns_none(tmp_path):
+    cleaning_result = CleaningResult(
+        input_dir=str(tmp_path / "raw"),
+        output_dir=str(tmp_path / "cleaned"),
+        outputs=[str(tmp_path / "cleaned" / "frame.fits")],
+    )
+    cleaning_stage = MagicMock(spec=CleaningStage)
+    cleaning_stage.run.return_value = cleaning_result
+    subtraction_stage = MagicMock(spec=ImageSubtractionStage)
+    subtraction_stage.run_after_cleaning.return_value = None
+
+    pipeline = Pipeline(
+        cleaning_stage,
+        subtraction_stage,
+        PipelineConfig(input_dir=str(tmp_path / "raw"), output_dir=str(tmp_path)),
+    )
+    result = pipeline.run()
+
+    assert not result.ok
+    assert result.cleaning is cleaning_result
+    assert result.subtraction is None
+    subtraction_stage.run_after_cleaning.assert_called_once()
 
 
 def test_pipeline_from_config_builds_real_stages():

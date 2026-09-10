@@ -13,6 +13,7 @@ import time
 from dataclasses import dataclass, field
 from typing import List
 
+from paloma.core.log import banner, configure_warnings, info, warn
 from .core import detect_gpu, is_gpu_free
 from .io import DEHAZED_PREFIX, get_fits_files, load_fits_directory
 from .workflow import (
@@ -56,12 +57,12 @@ def _resolve_gpu(cfg):
     if not cfg.use_gpu:
         return False
     if not detect_gpu():
-        print("  GPU: no CUDA device found, running on CPU")
+        warn("GPU: no CUDA device found, running on CPU")
         return False
     if not is_gpu_free():
-        print("  GPU: device is busy, running on CPU")
+        warn("GPU: device is busy, running on CPU")
         return False
-    print("  GPU: CUDA device is available and free — using CuPy acceleration")
+    info("GPU: CUDA device is available and free — using CuPy acceleration")
     return True
 
 
@@ -103,32 +104,39 @@ def _write_output_location_marker(output_dir, input_dir, label):
     ]
     with open(marker, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
-    print(f"\nWrote path hint: {marker}")
+    info(f"Wrote path hint: {marker}")
 
 
 def dehaze(input_dir, output_dir, cfg):
     """Spatio-temporal (3-D) dehazing over a directory of TESS FITS frames."""
+    configure_warnings()
     os.makedirs(output_dir, exist_ok=True)
     pipeline_start = time.time()
     out_abs = os.path.abspath(output_dir)
     in_abs = os.path.abspath(input_dir)
 
-    print(f"\n{'=' * 60}")
-    print("  3-D Spatio-Temporal Dehazing Pipeline")
-    print(f"  Input:  {in_abs}")
-    print(f"  Output: {out_abs}")
-    print(f"  Config: patch={cfg.patch_size}, var_thr={cfg.variance_threshold}, "
-          f"nn_thr={cfg.nn_dist_threshold}")
-    print(f"  Temporal: sigma={cfg.sigma_temporal}, "
-          f"guided_r={cfg.guided_filter_radius}, "
-          f"guided_eps={cfg.guided_filter_eps}")
+    extra = []
+    extra.append(
+        f"Config: patch={cfg.patch_size}, var_thr={cfg.variance_threshold}, "
+        f"nn_thr={cfg.nn_dist_threshold}"
+    )
+    extra.append(
+        f"Temporal: sigma={cfg.sigma_temporal}, "
+        f"guided_r={cfg.guided_filter_radius}, "
+        f"guided_eps={cfg.guided_filter_eps}"
+    )
     if cfg.batch_size is not None:
-        print(f"  Batch size: {cfg.batch_size} frames per batch")
+        extra.append(f"Batch size: {cfg.batch_size} frames per batch")
+    banner(
+        "Cleaning (3-D Spatio-Temporal Dehazing)",
+        f"Input:  {in_abs}",
+        f"Output: {out_abs}",
+        *extra,
+    )
     use_gpu = _resolve_gpu(cfg)
-    print(f"{'=' * 60}")
 
     all_files = _get_fits_files(input_dir, cfg.num_frames)
-    print(f"\nFound {len(all_files)} frames to process.")
+    info(f"Found {len(all_files)} frames to process.")
 
     chain = build_chain()
     for batch_idx, num_batches, batch_files in _iter_batches(all_files, cfg.batch_size):
@@ -136,9 +144,7 @@ def dehaze(input_dir, output_dir, cfg):
             f"Batch {batch_idx + 1}/{num_batches}" if num_batches > 1 else ""
         )
         if batch_label:
-            print(f"\n{'=' * 60}")
-            print(f"  {batch_label}  ({len(batch_files)} frames)")
-            print(f"{'=' * 60}")
+            banner(f"{batch_label}  ({len(batch_files)} frames)")
         cube, metadata = load_fits_directory(
             input_dir, cfg, files=batch_files
         )
@@ -154,8 +160,8 @@ def dehaze(input_dir, output_dir, cfg):
         chain.run(ctx)
 
     total = time.time() - pipeline_start
-    print(f"\nPipeline complete in {total:.1f}s.")
-    print(f"All FITS written under:\n  {out_abs}\n")
+    info(f"Cleaning complete in {total:.1f}s.")
+    info(f"FITS written under {out_abs}")
     _write_output_location_marker(output_dir, input_dir, "dehaze")
     return DehazeResult.collect("default", input_dir, output_dir)
 

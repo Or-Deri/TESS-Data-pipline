@@ -13,5 +13,5 @@ python -m paloma.cleaning.dehazer dehaze \
   --output-dir results/ours \
   --num-frames 5
 
-pytest tests/cleaning -m slow
+pytest tests/cleaning
 ```

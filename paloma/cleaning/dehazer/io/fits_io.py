@@ -9,6 +9,8 @@ import os
 import numpy as np
 from astropy.io import fits
 
+from paloma.core.log import info, item
+
 #: Filename prefix for recovered/dehazed output FITS (``dehazed__<source>.fits``).
 DEHAZED_PREFIX = "dehazed__"
 
@@ -107,24 +109,29 @@ def load_fits_directory(input_dir, cfg, files=None):
     if files is None:
         files = get_fits_files(input_dir, cfg.num_frames)
 
-    print(f"Loading {len(files)} FITS files ...")
+    n_files = len(files)
+    info(f"Loading {n_files} FITS files ...")
     frames = []
     filenames = []
     headers = []
     for i, path in enumerate(files):
         fname = os.path.basename(path)
-        print(f"  [{i + 1}/{len(files)}] Loading {fname} ...", end=" ")
         frame, header = load_single_fits(path, cfg)
-        print(f"shape={frame.shape}, range=[{np.min(frame):.2f}, {np.max(frame):.2f}]")
+        item(
+            i + 1,
+            n_files,
+            f"{fname}  {frame.shape[0]}x{frame.shape[1]}  "
+            f"[{np.min(frame):.2f}, {np.max(frame):.2f}]",
+        )
         frames.append(frame)
         filenames.append(fname)
         headers.append(header)
 
     global_min = min(float(np.min(fr)) for fr in frames)
     global_max = max(float(np.max(fr)) for fr in frames)
-    print(f"Normalizing globally: min={global_min:.2f}, max={global_max:.2f}")
     if global_max <= global_min:
         raise ValueError("Global max <= global min; cannot normalize batch")
+    info(f"Normalizing to [0, 1] using global range [{global_min:.2f}, {global_max:.2f}]")
 
     normed = []
     metadata = []
@@ -139,9 +146,7 @@ def load_fits_directory(input_dir, cfg, files=None):
                 "header": hd,
             }
         )
-        print(f"  Normalized {fn}: [{np.min(n):.4f}, {np.max(n):.4f}]")
 
-    print(f"Loaded and normalized {len(normed)} frames from {input_dir}")
     return np.stack(normed, axis=0), metadata
 
 

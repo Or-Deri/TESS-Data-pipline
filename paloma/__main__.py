@@ -6,6 +6,7 @@ import argparse
 import sys
 
 from paloma.pipeline import Pipeline
+from paloma.core.log import configure_warnings, info
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -34,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    configure_warnings()
     pipeline = Pipeline.from_env()
     result = pipeline.run(
         input_dir=args.input_dir,
@@ -46,20 +48,18 @@ def main(argv: list[str] | None = None) -> int:
         print("Cleaning produced no outputs; pipeline stopped.", file=sys.stderr)
         return 1
 
-    print(
-        f"Cleaning: {result.cleaning.num_outputs} frames → {result.cleaning.output_dir}"
-    )
+    info(f"Cleaning: {result.cleaning.num_outputs} frames → {result.cleaning.output_dir}")
 
     if result.subtraction is None:
         print("Image subtraction produced no outputs.", file=sys.stderr)
         return 1
 
     sub = result.subtraction
-    print(f"Subtraction: {sub.num_outputs} residuals → {sub.output_dir}")
+    info(f"Subtraction: {sub.num_outputs} residuals → {sub.output_dir}")
     if sub.sources_csv:
-        print(f"Sources: {sub.sources_csv}")
+        info(f"Sources: {sub.sources_csv}")
     if sub.lightcurve_dir:
-        print(f"Light curves: {sub.lightcurve_dir}")
+        info(f"Light curves: {sub.lightcurve_dir}")
     return 0
 
 

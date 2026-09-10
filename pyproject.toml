@@ -34,10 +34,10 @@ include = ["paloma*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = [
-  "slow: full-resolution end-to-end runs (minutes); deselect with -m 'not slow'",
-]
 filterwarnings = [
   "ignore::DeprecationWarning:lightkurve.*",
   "ignore::astropy.wcs.FITSFixedWarning",
+  "ignore:the tpfmodel submodule is not available:UserWarning",
+  "ignore:The column name 'xcentroid' was deprecated:astropy.utils.exceptions.AstropyDeprecationWarning",
+  "ignore:The column name 'ycentroid' was deprecated:astropy.utils.exceptions.AstropyDeprecationWarning",
 ]

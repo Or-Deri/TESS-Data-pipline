@@ -6,6 +6,8 @@ See ``README.md``.
 
 import numpy as np
 
+from paloma.core.log import warn
+
 
 def estimate_pairwise_airlight(p1, p2):
     """Closed-form pairwise airlight from a higher-contrast-first pair.
@@ -45,7 +47,7 @@ def estimate_airlight(pairs, num_iterations=10):
     filtered parallel list of only-valid pairs.
     """
     if not pairs:
-        print("    No pairs available, defaulting A=0.5")
+        warn("No pairs available, defaulting A=0.5")
         return 0.5
 
     pairwise_as = [
@@ -55,14 +57,10 @@ def estimate_airlight(pairs, num_iterations=10):
     ]
 
     if not pairwise_as:
-        print("    No valid pairwise estimates, defaulting A=0.5")
+        warn("No valid pairwise estimates, defaulting A=0.5")
         return 0.5
 
     global_a = float(np.mean(pairwise_as))
-    print(
-        f"    Pairwise estimates: {len(pairwise_as)} valid out of "
-        f"{len(pairs)} pairs, initial A={global_a:.4f}"
-    )
 
     for iteration in range(num_iterations):
         weights = []
@@ -84,12 +82,4 @@ def estimate_airlight(pairs, num_iterations=10):
         else:
             global_a = float(np.mean(pairwise_as))
 
-        if (iteration + 1) % 5 == 0 or iteration == 0:
-            print(
-                f"    Iteration {iteration + 1}/{num_iterations}: "
-                f"A={global_a:.6f}, {len(valid_indices)} weighted pairs"
-            )
-
-    final_a = float(np.clip(global_a, 0.0, 1.0))
-    print(f"    Final airlight: A={final_a:.6f}")
-    return final_a
+    return float(np.clip(global_a, 0.0, 1.0))

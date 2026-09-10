@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import os
-import shutil
 from glob import glob
 from pathlib import Path
 
@@ -30,6 +29,7 @@ from ..core.sources import (
 )
 from ..io import SUBTRACTED_PREFIX, background_subtract, save_fits
 from paloma.core.chain import Stage
+from paloma.core.log import info, item, step, warn
 
 
 
@@ -38,7 +38,7 @@ class PreprocessFrames(Stage):
 
     def apply(self, ctx):
         cfg = ctx.cfg
-        print(f"\n{ctx.prefix}--- Step 1/5: Preprocessing raw FFIs ---")
+        step(1, 5, "Preprocessing raw FFIs", prefix=ctx.prefix)
         files, did_work = preprocess_images(ctx.input_dir, ctx.layout.preprocessed, cfg)
         if not files:
             rejected = os.path.join(ctx.layout.preprocessed, "rejectedFiles.txt")
@@ -52,8 +52,13 @@ class PreprocessFrames(Stage):
             )
         ctx.preprocessed_files = files
         ctx.raw_files = get_file_names(ctx.input_dir, "*.fits")
-        if not did_work:
-            print(f"{ctx.prefix}Using existing preprocessed frames ({len(files)} files)")
+        if did_work:
+            info(f"Preprocessed {len(files)} frames", prefix=ctx.prefix)
+        else:
+            info(
+                f"Using existing preprocessed frames ({len(files)} files)",
+                prefix=ctx.prefix,
+            )
         return ctx
 
 
@@ -63,7 +68,7 @@ class BuildReference(Stage):
 
     def apply(self, ctx):
         cfg = ctx.cfg
-        print(f"\n{ctx.prefix}--- Step 2/5: Building reference master ---")
+        step(2, 5, "Building reference master", prefix=ctx.prefix)
         ctx.master_files = make_master(
             ctx.preprocessed_files, ctx.layout.preprocessed, ctx.layout.masters, cfg
         )
@@ -85,6 +90,11 @@ class BuildReference(Stage):
             ctx.layout.reference,
             os.path.basename(ctx.reference_fits),
         )
+        info(
+            f"Reference {os.path.basename(ctx.reference_fits)}  "
+            f"{len(positions)} kernel-star candidates",
+            prefix=ctx.prefix,
+        )
         return ctx
 
 
@@ -94,12 +104,35 @@ class OptimalSubtract(Stage):
 
     def apply(self, ctx):
         cfg = ctx.cfg
-        print(f"\n{ctx.prefix}--- Step 3/5: Optimal image subtraction ---")
+        step(3, 5, "Optimal image subtraction", prefix=ctx.prefix)
         ref_data, ref_head = fits.getdata(ctx.reference_fits, header=True)
         _, ref_median, _ = sigma_clipped_stats(ref_data, sigma=3.0, maxiters=5)
         ref_bg = ref_data - ref_median
 
+        use_c = bool(cfg.use_c_backend)
+        code_dir = cfg.code_dir or str(Path(ctx.output_dir) / "_c_scratch")
+        if use_c:
+            c_bin = Path(code_dir) / "a.out"
+            repo_aout = Path(__file__).resolve().parents[3] / "build" / "a.out"
+            if not c_bin.is_file() and not repo_aout.is_file():
+                warn(
+                    f"C backend a.out not found (looked in {code_dir} and build/); "
+                    "using Python OIS",
+                    prefix=ctx.prefix,
+                )
+                use_c = False
+            else:
+                info("Using C OIS backend", prefix=ctx.prefix)
+        else:
+            info("Using Python OIS", prefix=ctx.prefix)
+
+        n_frames = len(ctx.preprocessed_files)
         for iteration in range(cfg.num_iterations):
+            if cfg.num_iterations > 1:
+                info(
+                    f"Iteration {iteration + 1}/{cfg.num_iterations}",
+                    prefix=ctx.prefix,
+                )
             if iteration > 0:
                 ctx.master_files = make_master(
                     ctx.preprocessed_files,
@@ -129,20 +162,7 @@ class OptimalSubtract(Stage):
                 )
 
             residuals: list[str] = []
-            use_c = bool(cfg.use_c_backend)
-            if use_c:
-                code_dir = cfg.code_dir or str(Path(ctx.output_dir) / "_c_scratch")
-                c_bin = Path(code_dir) / "a.out"
-                repo_aout = Path(__file__).resolve().parents[3] / "build" / "a.out"
-                if not c_bin.is_file() and not repo_aout.is_file():
-                    print(
-                        f"{ctx.prefix}C backend a.out not found "
-                        f"(looked in {code_dir} and build/); "
-                        "falling back to pure-Python OIS"
-                    )
-                    use_c = False
-
-            for path in ctx.preprocessed_files:
+            for i, path in enumerate(ctx.preprocessed_files, 1):
                 img, head = fits.getdata(path, header=True)
                 sci, median = background_subtract(img)
                 sx, sy, n_used = select_kernel_stars(
@@ -156,7 +176,6 @@ class OptimalSubtract(Stage):
                 if n_used == 0:
                     raise RuntimeError(f"no kernel stars selected for {path}")
                 if use_c:
-                    code_dir = cfg.code_dir or str(Path(ctx.output_dir) / "_c_scratch")
                     diff = run_c_subtraction(
                         ref_bg,
                         sci,
@@ -181,6 +200,12 @@ class OptimalSubtract(Stage):
                 out_path = os.path.join(ctx.layout.residuals, out_name)
                 save_fits(diff.astype(np.float32), head, out_path)
                 residuals.append(out_path)
+                item(
+                    i,
+                    n_frames,
+                    f"{Path(path).name}  kernel stars={n_used}",
+                    prefix=ctx.prefix,
+                )
 
             ctx.residual_files = residuals
 
@@ -199,23 +224,30 @@ class DetectAndCrossMatch(Stage):
 
     def apply(self, ctx):
         cfg = ctx.cfg
-        print(f"\n{ctx.prefix}--- Step 4/5: Detecting and cross-matching sources ---")
+        step(4, 5, "Detecting and cross-matching sources", prefix=ctx.prefix)
+        n_res = len(ctx.residual_files)
         sources_per_image = []
-        for path in ctx.residual_files:
+        for i, path in enumerate(ctx.residual_files, 1):
             img, _ = fits.getdata(path, header=True)
-            sources_per_image.append(
-                find_sources(
-                    img,
-                    inverse=True,
-                    threshold=cfg.threshold_source_detection,
-                    fwhm=cfg.fwhm,
-                    edge_cutoff=cfg.edge_cutoff,
-                )
+            found = find_sources(
+                img,
+                inverse=True,
+                threshold=cfg.threshold_source_detection,
+                fwhm=cfg.fwhm,
+                edge_cutoff=cfg.edge_cutoff,
+            )
+            sources_per_image.append(found)
+            item(
+                i,
+                n_res,
+                f"{Path(path).name}  {len(found)} detections",
+                prefix=ctx.prefix,
             )
         sources_per_image = filter_source_list(
             sources_per_image, cfg.source_filter_threshold
         )
         if not sources_per_image:
+            info("No sources remained after filtering", prefix=ctx.prefix)
             ctx.source_list = []
             ctx.sources_csv = None
             return ctx
@@ -241,7 +273,10 @@ class DetectAndCrossMatch(Stage):
 
         ctx.source_list = ref_starlist
         ctx.sources_csv = csv_path
-        print(f"{ctx.prefix}Found {len(ref_starlist)} sources after cross-matching")
+        info(
+            f"Found {len(ref_starlist)} sources after cross-matching",
+            prefix=ctx.prefix,
+        )
         return ctx
 
 
@@ -252,8 +287,9 @@ class ExtractLightCurves(Stage):
 
     def apply(self, ctx):
         cfg = ctx.cfg
-        print(f"\n{ctx.prefix}--- Step 5/5: Extracting light curves ---")
+        step(5, 5, "Extracting light curves", prefix=ctx.prefix)
         if not ctx.source_list or not ctx.residual_files:
+            info("No sources to extract", prefix=ctx.prefix)
             ctx.lightcurve_files = []
             return ctx
 

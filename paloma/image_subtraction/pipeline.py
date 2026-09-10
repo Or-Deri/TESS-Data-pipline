@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import glob
 import os
 import time
 from dataclasses import fields
+
+from paloma.core.log import banner, configure_warnings, info
 
 from .config import SubtractionConfig
 from ..core.subtractor import BaseSubtractor, register_subtractor
@@ -16,6 +17,7 @@ from .workflow import SubtractionWorkflowContext, build_chain
 
 def subtract(input_dir: str, output_dir: str, cfg: SubtractionConfig) -> SubtractionResult:
     """Run the full OIS pipeline over a directory of FITS frames."""
+    configure_warnings()
     os.makedirs(output_dir, exist_ok=True)
     layout = RunLayout.create(output_dir)
     chain = build_chain()
@@ -26,13 +28,13 @@ def subtract(input_dir: str, output_dir: str, cfg: SubtractionConfig) -> Subtrac
         layout=layout,
     )
     start = time.time()
-    print(f"\n{'=' * 60}")
-    print("  Optimal Image Subtraction Pipeline")
-    print(f"  Input:  {ctx.input_dir}")
-    print(f"  Output: {ctx.output_dir}")
-    print(f"{'=' * 60}")
+    banner(
+        "Image subtraction (OIS)",
+        f"Input:  {ctx.input_dir}",
+        f"Output: {ctx.output_dir}",
+    )
     chain.run(ctx)
-    print(f"\nPipeline complete in {time.time() - start:.1f}s.")
+    info(f"Subtraction complete in {time.time() - start:.1f}s.")
     return SubtractionResult(
         input_dir=ctx.input_dir,
         output_dir=ctx.output_dir,

@@ -9,7 +9,7 @@ Verification set for the OIS pipeline (TESS sector s0003-2-1, 5 FFIs).
 | [`expected/found_sources.csv`](expected/found_sources.csv) | Cross-matched source catalog |
 
 ```bash
-pytest tests/image_subtraction -m slow
+pytest tests/image_subtraction
 ```
 
-Fixtures were generated with `random.seed(0)`, `blknum=5`, `num_iterations=2`.
+Fixtures were generated with `random.seed(0)`, `blknum=5`, `num_iterations=2`, and the compiled C OIS backend. Without `build/a.out` the test uses Python OIS and a looser residual tolerance.

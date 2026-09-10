@@ -2,18 +2,9 @@
 
 ``tests/data/cleaning/groundtruth/raw/`` holds 5 real TESS FFI frames;
 ``tests/data/cleaning/groundtruth/expected/`` holds the ``dehazed_3d__*.fits``
-that the original dehazer produced from them. This is a slow, full-resolution
-end-to-end check (a few minutes at ``guided_filter_radius=60`` on 2048x2048
-frames), so it is marked ``slow`` and skipped automatically if the FITS fixtures
-are missing.
-
-Run only this check with::
-
-    pytest -m slow
-
-or exclude it from a quick run with::
-
-    pytest -m "not slow"
+that the original dehazer produced from them. Full-resolution end-to-end
+(a few minutes at ``guided_filter_radius=60`` on 2048x2048 frames); skipped
+automatically if the FITS fixtures are missing.
 """
 
 from pathlib import Path
@@ -28,8 +19,6 @@ GROUNDTRUTH = (
 )
 RAW_DIR = GROUNDTRUTH / "raw"
 EXPECTED_DIR = GROUNDTRUTH / "expected"
-
-pytestmark = pytest.mark.slow
 
 
 @pytest.mark.skipif(
