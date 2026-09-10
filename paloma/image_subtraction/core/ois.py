@@ -1,4 +1,9 @@
-"""Pure-Python Optimal Image Subtraction (OIS) engine — matches reference C layout."""
+"""Pure-Python Optimal Image Subtraction (OIS) engine.
+
+The normal equations are accumulated in the same flat column-major layout as
+the reference C implementation (``oisdifference.c``); the solve itself is
+delegated to LAPACK via :func:`numpy.linalg.solve`.
+"""
 
 from __future__ import annotations
 
@@ -15,59 +20,22 @@ def _make_delta_kernel(nk: int, index: int, center: int) -> np.ndarray:
 
 
 def _lu_solve(c_flat: np.ndarray, d_vec: np.ndarray, q: int) -> np.ndarray:
-    """LU solve using flat column-major layout matching the reference C code."""
-    c = c_flat.copy()
-    low = np.zeros(q * q, dtype=np.float64)
-    u = np.zeros(q * q, dtype=np.float64)
+    """Solve the OIS normal equations ``C a = d`` for the kernel coefficients.
 
-    for k in range(q):
-        low[k + k * q] = 1.0
-        for i in range(k + 1, q):
-            low[k + i * q] = c[k + i * q] / c[k + k * q]
-            for j in range(k + 1, q):
-                c[j + i * q] -= low[k + i * q] * c[j + k * q]
-        for j in range(k, q):
-            u[j + k * q] = c[k + j * q]
+    ``c_flat`` is the column-major flattening of the symmetric ``q x q``
+    matrix accumulated by :func:`optimal_subtract`, so element ``(row, col)``
+    lives at ``c_flat[row + col * q]``.
 
-    ycs = np.zeros(q, dtype=np.float64)
-    rhs = d_vec.copy()
-    for i in range(q - 1):
-        for j in range(i + 1, q):
-            ratio = low[j + i * q] / low[i + i * q]
-            for count in range(i, q):
-                idx = count + j * q
-                src = count + i * count
-                if src < low.size:
-                    low[idx] -= ratio * low[src]
-            rhs[j] -= ratio * rhs[i]
-
-    ycs[q - 1] = rhs[q - 1] / low[(q - 1) + q * (q - 1)]
-    for i in range(q - 2, -1, -1):
-        temp = rhs[i]
-        for j in range(i + 1, q):
-            temp -= low[j + i * q] * ycs[j]
-        ycs[i] = temp / low[i + i * q]
-
-    xcs = np.zeros(q, dtype=np.float64)
-    u_work = u.copy()
-    y_work = ycs.copy()
-    for i in range(q - 1):
-        for j in range(i + 1, q):
-            ratio = u_work[j + i * q] / u_work[i + i * q]
-            for count in range(i, q):
-                idx = count + j * q
-                src = count + i * count
-                if src < u_work.size:
-                    u_work[idx] -= ratio * low[src]
-            y_work[j] -= ratio * y_work[i]
-
-    xcs[q - 1] = y_work[q - 1] / u_work[(q - 1) + q * (q - 1)]
-    for i in range(q - 2, -1, -1):
-        temp = y_work[i]
-        for j in range(i + 1, q):
-            temp -= u_work[j + i * q] * xcs[j]
-        xcs[i] = temp / u_work[i + i * q]
-    return xcs
+    Falls back to a least-squares solution when the system is singular, which
+    happens when the kernel stars do not constrain every basis term (too few
+    stars, or stars that are collinear in the spatial polynomial).
+    """
+    matrix = np.asarray(c_flat, dtype=np.float64).reshape(q, q, order="F")
+    rhs = np.asarray(d_vec, dtype=np.float64)
+    try:
+        return np.linalg.solve(matrix, rhs)
+    except np.linalg.LinAlgError:
+        return np.linalg.lstsq(matrix, rhs, rcond=None)[0]
 
 
 def optimal_subtract(

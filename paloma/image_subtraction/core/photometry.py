@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import numpy as np
 from astropy.coordinates import SkyCoord
@@ -14,9 +13,26 @@ from photutils.aperture import CircularAperture, aperture_photometry
 
 from paloma.core.log import info, item
 
+from ..io.layout import SUBTRACTED_PREFIX
+
 # TESS TSTART is BTJD (BJD − this offset). Matches lightkurve's ``btjd`` format
 # and the usual FFI keywords ``BJDREFI``/``BJDREFF``.
 _TESS_BJDREF = 2457000.0
+
+# Rotation/scale keywords that must not survive a WCS merge, so that the CD and
+# PC conventions never appear in the same header.
+_WCS_CONFLICT_KEYS = (
+    "CD1_1",
+    "CD1_2",
+    "CD2_1",
+    "CD2_2",
+    "PC1_1",
+    "PC1_2",
+    "PC2_1",
+    "PC2_2",
+    "CDELT1",
+    "CDELT2",
+)
 
 
 def tstart_to_jd(header: fits.Header) -> float:
@@ -28,23 +44,41 @@ def tstart_to_jd(header: fits.Header) -> float:
 
 
 def propagate_wcs(dir_with_headers: str, dir_without_headers: str) -> None:
+    """Copy the WCS from preprocessed frames onto their matching residuals.
+
+    Residuals carry the ``subtracted__`` prefix, so they are paired with their
+    source frame by name after stripping it. The WCS keywords are *merged* into
+    the residual's existing header rather than replacing it: a bare
+    ``WCS.to_header()`` carries no ``TSTART``, which
+    :func:`measure_flux_timestamps` needs to build the light-curve time axis.
+    """
     from .preprocess import _has_wcs
 
-    headers_files = sorted(f for f in os.listdir(dir_with_headers) if f.endswith(".fits"))
-    no_headers_files = sorted(f for f in os.listdir(dir_without_headers) if f.endswith(".fits"))
-    for header_file, no_header_file in zip(headers_files, no_headers_files):
-        if Path(header_file).stem != Path(no_header_file).stem:
+    sources = {
+        name: os.path.join(dir_with_headers, name)
+        for name in os.listdir(dir_with_headers)
+        if name.endswith(".fits")
+    }
+    for name in sorted(os.listdir(dir_without_headers)):
+        if not name.endswith(".fits"):
             continue
-        header_path = os.path.join(dir_with_headers, header_file)
-        no_header_path = os.path.join(dir_without_headers, no_header_file)
-        _, header = fits.getdata(header_path, header=True)
+        stem = name
+        if stem.startswith(SUBTRACTED_PREFIX):
+            stem = stem[len(SUBTRACTED_PREFIX) :]
+        source_path = sources.get(stem)
+        if source_path is None:
+            continue
+        header = fits.getheader(source_path)
         if not _has_wcs(header):
             continue
-        wcs = WCS(header)
-        no_img, _ = fits.getdata(no_header_path, header=True)
-        fits.PrimaryHDU(no_img, header=wcs.to_header(relax=True)).writeto(
-            no_header_path, overwrite=True
-        )
+        wcs_header = WCS(header).to_header(relax=True)
+        with fits.open(os.path.join(dir_without_headers, name), mode="update") as hdul:
+            target = hdul[0].header
+            # Drop the old rotation/scale convention so a CD matrix and a PC
+            # matrix never coexist in the merged header.
+            for key in _WCS_CONFLICT_KEYS:
+                target.remove(key, ignore_missing=True, remove_all=True)
+            target.update(wcs_header)
 
 
 def measure_flux_timestamps(apertures, aperture_rad: int, file_list: list[str]):
@@ -52,9 +86,11 @@ def measure_flux_timestamps(apertures, aperture_rad: int, file_list: list[str]):
     for path in file_list:
         img, head = fits.getdata(path, header=True)
         time_stamps.append(tstart_to_jd(head))
-        mean, median, std = sigma_clipped_stats(img, sigma=3.0, maxiters=5)
+        _, median, _ = sigma_clipped_stats(img, sigma=3.0, maxiters=5)
         raw = aperture_photometry(img, apertures)
-        bkg_sum = mean * (np.pi * aperture_rad ** 2)
+        # Median, to match the estimator used by OIS, ``background_subtract``
+        # and kernel-star selection.
+        bkg_sum = median * (np.pi * aperture_rad ** 2)
         flux.append(raw["aperture_sum"] - bkg_sum)
         flux_err.append(np.sqrt(np.abs(raw["aperture_sum"])))
     return flux, flux_err, time_stamps
