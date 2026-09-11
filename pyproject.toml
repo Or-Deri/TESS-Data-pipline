@@ -17,7 +17,7 @@ dependencies = [
   "scikit-image>=0.19",
   "opencv-python>=4.5",
   "matplotlib>=3.4",
-  "photutils>=1.5",
+  "photutils==3.0.0",
   "lightkurve>=2.4",
   "python-dotenv>=1.0",
   "FITS_tools @ git+https://github.com/keflavich/FITS_tools.git",

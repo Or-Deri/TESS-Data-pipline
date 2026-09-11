@@ -42,6 +42,7 @@ htmlcov/
 !tests/data/cleaning/groundtruth/raw/*.fits
 !tests/data/cleaning/groundtruth/expected/*.fits
 !tests/data/image_subtraction/groundtruth/expected/residuals/*.fits
+!tests/data/image_subtraction/groundtruth/expected/lightcurves.fits
 
 # Local capture scratch from ground-truth generation (not fixtures)
 tests/data/**/_work/

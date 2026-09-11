@@ -125,12 +125,8 @@ def test_tstart_to_jd_uses_header_bjdref():
     assert tstart_to_jd(header) == 2457010.75
 
 
-def test_measure_flux_subtracts_the_median_background(tmp_path):
-    """The aperture background uses the sigma-clipped median.
-
-    OIS, ``background_subtract`` and kernel-star selection all use the median;
-    the mean would bias fluxes on skewed residuals.
-    """
+def test_measure_flux_subtracts_the_mean_background(tmp_path):
+    """The aperture background uses the sigma-clipped mean (original algorithm)."""
     rng = np.random.default_rng(0)
     # Right-skewed, so the clipped mean and median are measurably different.
     img = rng.gamma(shape=2.0, scale=5.0, size=(64, 64)).astype(np.float32)
@@ -147,7 +143,7 @@ def test_measure_flux_subtracts_the_median_background(tmp_path):
     raw = float(aperture_photometry(img, apertures)["aperture_sum"][0])
     area = np.pi * aperture_rad**2
     assert mean != pytest.approx(median), "test image is not skewed enough to discriminate"
-    assert float(flux[0][0]) == pytest.approx(raw - median * area, rel=1e-6)
+    assert float(flux[0][0]) == pytest.approx(raw - mean * area, rel=1e-6)
     assert times == [2457000.0 + 1000.0]
 
 

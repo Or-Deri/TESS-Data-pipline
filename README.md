@@ -7,6 +7,10 @@ input FITS → Cleaning (dehazer) → cleaned FITS → Image Subtraction (OIS)
           → residuals / sources / light curves
 ```
 
+## Documentation
+
+Full project overview — both algorithms in detail, how the rewrite was verified, and the configuration reference: [`docs/OVERVIEW.md`](docs/OVERVIEW.md). The upstream READMEs are kept alongside it in [`docs/`](docs/).
+
 ## Install
 
 ```bash

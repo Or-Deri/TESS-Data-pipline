@@ -76,3 +76,71 @@ def assert_sources_match(
                 err_msg=f"row {i} {key}",
             )
     return len(rows_a)
+
+
+def assert_lightcurves_match(
+    actual_dir: Path,
+    packed_expected: Path,
+    rtol: float = 1e-5,
+    atol: float = 1e-3,
+) -> int:
+    """Compare Paloma per-source FITS light curves to a packed fixture table."""
+    expected = fits.getdata(packed_expected, ext=1)
+    actual_files = sorted(Path(actual_dir).glob("*.fits"))
+    assert actual_files, f"no light-curve FITS in {actual_dir}"
+    assert len(actual_files) == len(expected), (
+        f"light-curve counts differ: {len(actual_files)} vs {len(expected)}"
+    )
+
+    by_index: dict[int, Path] = {}
+    for path in actual_files:
+        # ``{camera}-{ccd}_{index:05d}_x{int(x)}_y{int(y)}.fits``
+        stem = path.stem
+        try:
+            idx = int(stem.split("_", 1)[1].split("_", 1)[0])
+        except (IndexError, ValueError) as exc:
+            raise AssertionError(f"unrecognised light-curve name: {path.name}") from exc
+        by_index[idx] = path
+
+    for row in expected:
+        path = by_index.get(int(row["index"]))
+        assert path is not None, f"missing light curve for index {row['index']}"
+        with fits.open(path) as hdul:
+            table = hdul["LIGHTCURVE"].data
+            header = hdul[0].header
+            np.testing.assert_allclose(
+                np.asarray(table["TIME"], dtype=np.float64),
+                np.atleast_1d(row["TIME"]).astype(np.float64),
+                rtol=1e-12,
+                atol=1e-9,
+                err_msg=f"{path.name} TIME",
+            )
+            np.testing.assert_allclose(
+                np.asarray(table["FLUX"], dtype=np.float32),
+                np.atleast_1d(row["FLUX"]).astype(np.float32),
+                rtol=rtol,
+                atol=atol,
+                err_msg=f"{path.name} FLUX",
+            )
+            np.testing.assert_allclose(
+                np.asarray(table["FLUX_ERR"], dtype=np.float32),
+                np.atleast_1d(row["FLUX_ERR"]).astype(np.float32),
+                rtol=rtol,
+                atol=atol,
+                err_msg=f"{path.name} FLUX_ERR",
+            )
+            np.testing.assert_allclose(
+                float(header["X_PIX"]),
+                float(row["x"]),
+                rtol=1e-6,
+                atol=1e-3,
+                err_msg=f"{path.name} X_PIX",
+            )
+            np.testing.assert_allclose(
+                float(header["Y_PIX"]),
+                float(row["y"]),
+                rtol=1e-6,
+                atol=1e-3,
+                err_msg=f"{path.name} Y_PIX",
+            )
+    return len(expected)

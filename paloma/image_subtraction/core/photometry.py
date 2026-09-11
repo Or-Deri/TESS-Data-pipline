@@ -86,11 +86,13 @@ def measure_flux_timestamps(apertures, aperture_rad: int, file_list: list[str]):
     for path in file_list:
         img, head = fits.getdata(path, header=True)
         time_stamps.append(tstart_to_jd(head))
-        _, median, _ = sigma_clipped_stats(img, sigma=3.0, maxiters=5)
+        mean, _, _ = sigma_clipped_stats(img, sigma=3.0, maxiters=5)
         raw = aperture_photometry(img, apertures)
-        # Median, to match the estimator used by OIS, ``background_subtract``
-        # and kernel-star selection.
-        bkg_sum = median * (np.pi * aperture_rad ** 2)
+        # The original ``getFluxFluxErrTimestamps`` uses the sigma-clipped mean,
+        # not the median that OIS and ``background_subtract`` use. The packed
+        # light-curve fixture pins it; switching to the median shifts fluxes by
+        # up to ~10 counts on the ground-truth residuals.
+        bkg_sum = mean * (np.pi * aperture_rad ** 2)
         flux.append(raw["aperture_sum"] - bkg_sum)
         flux_err.append(np.sqrt(np.abs(raw["aperture_sum"])))
     return flux, flux_err, time_stamps
