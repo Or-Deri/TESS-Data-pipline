@@ -19,6 +19,7 @@
 9. [Configuration](#9-configuration)
 10. [How to run it](#10-how-to-run-it)
 11. [Testing strategy](#11-testing-strategy)
+12. [Appendix — Minimal example](#appendix--minimal-example)
 
 ---
 
@@ -422,6 +423,8 @@ gcc oisdifference.c -lcfitsio -lm -o build/a.out
 
 `oisdifference.c` is **not** in this repository; get it from the upstream `image-subtraction` repo. It is faster than the Python path but no longer more accurate.
 
+A copy-paste first run — clone, smoke-test the five bundled FFIs, then point `--input-dir` at your data — is the [appendix](#appendix--minimal-example).
+
 ---
 
 ## 11. Testing strategy
@@ -456,3 +459,75 @@ Tolerances for the subtraction artifacts are in [section 4](#4-verification-stat
 - `tests/image_subtraction/test_ois.py` — kernel fit, including a flux-rescale case whose residual should be ~`1e-13`
 - `tests/image_subtraction/test_photometry.py`
 - `tests/image_subtraction/test_sources.py`
+
+---
+
+## Appendix — Minimal example
+
+The smallest useful run is the five bundled TESS FFIs (sector s0003-2-1) under `tests/data/cleaning/groundtruth/raw/`. That is the same set used in [section 4](#4-verification-status). Once it finishes, a production job is the same command with a different `--input-dir`.
+
+Prefer a **CPU** node. Image subtraction never uses a GPU. The dehazer can, but only if CuPy is installed, `PALOMA_DEHAZE_USE_GPU=true`, and the node is exclusive enough to pass the free-VRAM check. CPU allocations are simpler and cover the whole pipeline. Do not compile `build/a.out` unless you already have `cfitsio`; without it Paloma falls back to the Python OIS, which matches the C residuals to float32 precision.
+
+### 1. One-time setup
+
+Install needs outbound network: `pyproject.toml` pulls `FITS_tools` from GitHub. Put the venv in `$HOME` — scratch is often `noexec` or cannot host venv symlinks.
+
+```bash
+module load python/3.11          # site module, Python ≥ 3.10
+git clone https://github.com/Or-Deri/TESS-Data-pipline.git paloma
+cd paloma
+python -m venv "$HOME/paloma-venv"
+source "$HOME/paloma-venv/bin/activate"
+pip install -U pip
+pip install -e .
+cp .env.example .env
+```
+
+### 2. Smoke test
+
+```bash
+source "$HOME/paloma-venv/bin/activate"
+cd /path/to/paloma
+python -m paloma \
+  --input-dir tests/data/cleaning/groundtruth/raw \
+  --output-dir "$SCRATCH/paloma-smoke"
+```
+
+A few minutes. Success prints the cleaned-frame count, then the residual, catalog, and light-curve paths. Look for:
+
+```text
+$SCRATCH/paloma-smoke/cleaned/dehazed__*.fits
+$SCRATCH/paloma-smoke/subtracted/04_residual_img/
+$SCRATCH/paloma-smoke/subtracted/05_sources/found_sources.csv
+$SCRATCH/paloma-smoke/subtracted/06_lightcurves/
+```
+
+If import fails on `libGL.so.1`, `pip install opencv-python-headless`.
+
+### 3. Run on your own FFIs
+
+Put the science `*.fits` in one directory; alphabetical order is the time axis. In `.env`, set `PALOMA_DEHAZE_NUM_FRAMES` to at least that count — the default cap is 10. Leave `PALOMA_DEHAZE_USE_GPU=false`. `--input-dir` / `--output-dir` override `.env`; everything else stays there.
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=paloma
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
+#SBATCH --time=04:00:00
+#SBATCH --output=paloma-%j.out
+# Add --partition / --account if your site requires them.
+
+module load python/3.11
+source "$HOME/paloma-venv/bin/activate"
+cd /path/to/paloma
+
+python -m paloma \
+  --input-dir "$SCRATCH/tess/s0003-2-1" \
+  --output-dir "$SCRATCH/paloma-out"
+```
+
+```bash
+sbatch paloma.slurm
+```
+
+After the venv exists, a later dataset is that one `sbatch`. Write outputs to scratch, not `$HOME`.
